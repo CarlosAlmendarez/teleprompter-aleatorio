@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
 import { ChordChartPlayer } from "@/components/scores/ChordChartPlayer";
 import { parseChordChart } from "@/lib/musicxml/parseChordChart";
+import { parseLyricSegments } from "@/lib/musicxml/parseLyricChart";
 
 export default async function ScorePlayerPage({
   params,
@@ -24,11 +25,13 @@ export default async function ScorePlayerPage({
   if (!doc || doc.type !== "musicxml") notFound();
 
   const chartData = parseChordChart(doc.content ?? "");
+  const lyricSegments = parseLyricSegments(doc.metadata?.lyrics ?? "", chartData.measures);
 
   return (
     <ChordChartPlayer
       title={chartData.title ?? doc.title}
       data={chartData}
+      lyricSegments={lyricSegments}
       backHref={`/documents/${doc.id}`}
     />
   );

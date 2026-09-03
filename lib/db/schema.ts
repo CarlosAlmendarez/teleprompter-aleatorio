@@ -93,6 +93,13 @@ export type DocumentMetadata = {
   tempo?: number;
   notes?: string;
   durationSec?: number;
+  /**
+   * Lyrics for a musicxml chord chart, with `{m:<measure number>}` tags
+   * marking where each measure's lyric segment begins — lets the chord
+   * chart player sync lyric lines to the same tempo-driven playback clock
+   * as the chords, without needing a full visual alignment editor.
+   */
+  lyrics?: string;
 };
 
 export const documents = pgTable("documents", {

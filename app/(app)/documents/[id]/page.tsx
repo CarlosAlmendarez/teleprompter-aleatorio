@@ -7,7 +7,9 @@ import { documents } from "@/lib/db/schema";
 import { DocumentEditor } from "@/components/library/DocumentEditor";
 import { DocumentViewerHeader } from "@/components/library/DocumentViewerHeader";
 import { ChordChart } from "@/components/scores/ChordChart";
+import { LyricsEditor } from "@/components/scores/LyricsEditor";
 import { parseChordChart } from "@/lib/musicxml/parseChordChart";
+import { availableMeasureNumbers } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentRow } from "@/lib/types";
 
 export default async function DocumentPage({
@@ -51,6 +53,11 @@ export default async function DocumentPage({
           }
         />
         <ChordChart data={chartData} />
+        <LyricsEditor
+          documentId={doc.id}
+          metadata={doc.metadata}
+          measureNumbers={availableMeasureNumbers(chartData.measures)}
+        />
       </div>
     );
   }

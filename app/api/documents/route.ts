@@ -11,6 +11,7 @@ const metadataSchema = z
     tempo: z.number().int().positive().optional(),
     notes: z.string().max(2000).optional(),
     durationSec: z.number().int().positive().optional(),
+    lyrics: z.string().max(200_000).optional(),
   })
   .partial();
 

@@ -1,3 +1,5 @@
+import type { DocumentMetadata } from "@/lib/db/schema";
+
 export type DocumentType = "pdf" | "musicxml" | "text" | "chordpro";
 
 export type DocumentRow = {
@@ -8,12 +10,7 @@ export type DocumentRow = {
   title: string;
   content: string | null;
   blobUrl: string | null;
-  metadata: {
-    key?: string;
-    tempo?: number;
-    notes?: string;
-    durationSec?: number;
-  } | null;
+  metadata: DocumentMetadata | null;
   createdAt: string;
   updatedAt: string;
 };
