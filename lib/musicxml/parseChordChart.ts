@@ -43,6 +43,13 @@ const ALTER_SYMBOL: Record<string, string> = {
 export type ChordChartMeasure = {
   number: string;
   chords: string[];
+  /** Tempo (quarter notes per minute) in effect during this measure. */
+  tempo: number;
+  beats: number;
+  beatType: number;
+  /** Seconds from the start of the song to the start of this measure. */
+  startSec: number;
+  durationSec: number;
 };
 
 export type ChordChart = {
@@ -52,6 +59,7 @@ export type ChordChart = {
   beatType: number | null;
   keyMode: string | null;
   measures: ChordChartMeasure[];
+  totalDurationSec: number;
 };
 
 function firstMatch(source: string, pattern: RegExp): string | null {
@@ -76,18 +84,38 @@ function chordSymbol(harmonyXml: string): string | null {
   return `${step}${alter ? (ALTER_SYMBOL[alter] ?? "") : ""}${suffix}`;
 }
 
+const DEFAULT_TEMPO = 120;
+const DEFAULT_BEATS = 4;
+const DEFAULT_BEAT_TYPE = 4;
+
 export function parseChordChart(xml: string): ChordChart {
   const title = firstMatch(xml, /<work-title>\s*([\s\S]*?)\s*<\/work-title>/);
-  const tempo = firstMatch(xml, /<per-minute>\s*(\d+)\s*<\/per-minute>/);
-  const beats = firstMatch(xml, /<beats>\s*(\d+)\s*<\/beats>/);
-  const beatType = firstMatch(xml, /<beat-type>\s*(\d+)\s*<\/beat-type>/);
+  const initialTempo = firstMatch(xml, /<per-minute>\s*(\d+(?:\.\d+)?)\s*<\/per-minute>/);
+  const initialBeats = firstMatch(xml, /<beats>\s*(\d+)\s*<\/beats>/);
+  const initialBeatType = firstMatch(xml, /<beat-type>\s*(\d+)\s*<\/beat-type>/);
   const keyMode = firstMatch(xml, /<mode>\s*([\w-]+)\s*<\/mode>/);
 
   const measures: ChordChartMeasure[] = [];
+  let tempo = initialTempo ? Number(initialTempo) : DEFAULT_TEMPO;
+  let beats = initialBeats ? Number(initialBeats) : DEFAULT_BEATS;
+  let beatType = initialBeatType ? Number(initialBeatType) : DEFAULT_BEAT_TYPE;
+  let cursorSec = 0;
+
   const measureRe = /<measure\b[^>]*\bnumber="([^"]*)"[^>]*>([\s\S]*?)<\/measure>/g;
   let measureMatch: RegExpExecArray | null;
   while ((measureMatch = measureRe.exec(xml))) {
     const [, number, body] = measureMatch;
+
+    // Tempo/time-signature changes apply from this measure forward.
+    const measureTempo =
+      firstMatch(body, /<sound[^>]*\btempo="([\d.]+)"/) ??
+      firstMatch(body, /<per-minute>\s*(\d+(?:\.\d+)?)\s*<\/per-minute>/);
+    if (measureTempo) tempo = Number(measureTempo);
+    const measureBeats = firstMatch(body, /<beats>\s*(\d+)\s*<\/beats>/);
+    if (measureBeats) beats = Number(measureBeats);
+    const measureBeatType = firstMatch(body, /<beat-type>\s*(\d+)\s*<\/beat-type>/);
+    if (measureBeatType) beatType = Number(measureBeatType);
+
     const chords: string[] = [];
     const harmonyRe = /<harmony\b[^>]*>([\s\S]*?)<\/harmony>/g;
     let harmonyMatch: RegExpExecArray | null;
@@ -95,15 +123,22 @@ export function parseChordChart(xml: string): ChordChart {
       const symbol = chordSymbol(harmonyMatch[1]);
       if (symbol) chords.push(symbol);
     }
-    measures.push({ number, chords });
+
+    const secondsPerQuarter = 60 / tempo;
+    const durationSec = beats * (4 / beatType) * secondsPerQuarter;
+    const startSec = cursorSec;
+    cursorSec += durationSec;
+
+    measures.push({ number, chords, tempo, beats, beatType, startSec, durationSec });
   }
 
   return {
     title,
-    tempo: tempo ? Number(tempo) : null,
-    beats: beats ? Number(beats) : null,
-    beatType: beatType ? Number(beatType) : null,
+    tempo: initialTempo ? Number(initialTempo) : null,
+    beats: initialBeats ? Number(initialBeats) : null,
+    beatType: initialBeatType ? Number(initialBeatType) : null,
     keyMode,
     measures,
+    totalDurationSec: cursorSec,
   };
 }

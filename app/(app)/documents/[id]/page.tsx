@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -40,6 +41,14 @@ export default async function DocumentPage({
           documentId={doc.id}
           title={chartData.title ?? doc.title}
           folderId={doc.folderId}
+          extra={
+            <Link
+              href={`/scores/${doc.id}`}
+              className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+            >
+              ▶ Reproducir
+            </Link>
+          }
         />
         <ChordChart data={chartData} />
       </div>

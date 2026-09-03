@@ -6,10 +6,12 @@ export function DocumentViewerHeader({
   documentId,
   title,
   folderId,
+  extra,
 }: {
   documentId: string;
   title: string;
   folderId: string | null;
+  extra?: React.ReactNode;
 }) {
   const router = useRouter();
   const backHref = folderId ? `/folders/${folderId}` : "/dashboard";
@@ -32,12 +34,15 @@ export function DocumentViewerHeader({
         </button>
         <h1 className="truncate text-lg font-semibold">{title}</h1>
       </div>
-      <button
-        onClick={handleDelete}
-        className="whitespace-nowrap rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 dark:border-white/15"
-      >
-        Eliminar
-      </button>
+      <div className="flex items-center gap-2">
+        {extra}
+        <button
+          onClick={handleDelete}
+          className="whitespace-nowrap rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 dark:border-white/15"
+        >
+          Eliminar
+        </button>
+      </div>
     </div>
   );
 }
