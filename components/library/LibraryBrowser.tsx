@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DocumentRow, DocumentType, FolderRow } from "@/lib/types";
+
+const MUSICXML_EXTENSIONS = [".musicxml", ".xml"];
 
 const TYPE_LABEL: Record<DocumentType, string> = {
   text: "Texto",
@@ -17,6 +19,8 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
   const [allFolders, setAllFolders] = useState<FolderRow[]>([]);
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     setLoading(true);
@@ -68,6 +72,40 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
     router.push(`/documents/${created.id}`);
   }
 
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    const isMusicXml = MUSICXML_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+    const type: DocumentType = isMusicXml ? "musicxml" : "text";
+
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const workTitle = isMusicXml
+        ? text.match(/<work-title>\s*([\s\S]*?)\s*<\/work-title>/)?.[1]
+        : null;
+      const title =
+        workTitle || file.name.replace(/\.(txt|musicxml|xml)$/i, "") || "Sin título";
+
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, title, folderId, content: text }),
+      });
+      if (!res.ok) {
+        window.alert("No se pudo importar el archivo.");
+        return;
+      }
+      const created: DocumentRow = await res.json();
+      router.push(`/documents/${created.id}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function deleteFolder(id: string) {
     if (!window.confirm("¿Eliminar esta carpeta y todo su contenido?")) return;
     await fetch(`/api/folders/${id}`, { method: "DELETE" });
@@ -117,6 +155,20 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
           className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium hover:bg-black/[.03] dark:border-white/15 dark:hover:bg-white/[.05]"
         >
           + ChordPro
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.musicxml,.xml"
+          onChange={handleImportFile}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+          className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium hover:bg-black/[.03] disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/[.05]"
+        >
+          {importing ? "Importando…" : "⇪ Importar archivo (.txt / .musicxml)"}
         </button>
       </div>
 

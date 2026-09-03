@@ -17,13 +17,27 @@ export const metadata: Metadata = {
   description: "Teleprompter y biblioteca de guiones/partituras para músicos y creadores.",
 };
 
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("theme");
+    var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

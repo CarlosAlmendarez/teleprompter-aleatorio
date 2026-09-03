@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, signOut } from "@/lib/auth";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default async function AppLayout({
   children,
@@ -22,6 +23,7 @@ export default async function AppLayout({
           Teleprompter
         </Link>
         <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
+          <ThemeToggle />
           <span>{session.user.email}</span>
           <form action={handleSignOut}>
             <button

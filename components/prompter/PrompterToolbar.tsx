@@ -1,7 +1,12 @@
 "use client";
 
 import type { RefObject } from "react";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import type { PrompterMode } from "./usePrompterEngine";
+
+const BUTTON_CLASS =
+  "rounded-lg border border-black/15 bg-black/5 px-3 py-1.5 text-sm dark:border-white/15 dark:bg-white/5";
 
 export function PrompterToolbar({
   visible,
@@ -9,6 +14,7 @@ export function PrompterToolbar({
   playing,
   mirror,
   title,
+  backHref,
   minSpeed,
   maxSpeed,
   speedStep,
@@ -31,6 +37,7 @@ export function PrompterToolbar({
   playing: boolean;
   mirror: boolean;
   title: string;
+  backHref: string;
   minSpeed: number;
   maxSpeed: number;
   speedStep: number;
@@ -50,11 +57,20 @@ export function PrompterToolbar({
 }) {
   return (
     <div
-      className={`flex flex-wrap items-center gap-2 border-b border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 transition-transform duration-200 ${
+      className={`flex flex-wrap items-center gap-2 border-b border-black/10 bg-zinc-100 px-3 py-2 text-zinc-900 transition-transform duration-200 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100 ${
         visible ? "" : "-translate-y-full opacity-0 pointer-events-none"
       }`}
     >
-      <span className="mr-1 truncate text-sm text-zinc-400">{title}</span>
+      <Link
+        href={backHref}
+        title="Cerrar teleprompter"
+        aria-label="Cerrar teleprompter"
+        className={BUTTON_CLASS}
+      >
+        ✕
+      </Link>
+
+      <span className="mr-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{title}</span>
 
       <div className="flex items-center gap-1">
         <button
@@ -62,7 +78,7 @@ export function PrompterToolbar({
           className={`rounded-lg border px-3 py-1.5 text-sm ${
             mode === "auto"
               ? "border-emerald-400 bg-emerald-400 font-semibold text-black"
-              : "border-white/15 bg-white/5"
+              : "border-black/15 bg-black/5 dark:border-white/15 dark:bg-white/5"
           }`}
         >
           ▶ Auto
@@ -72,7 +88,7 @@ export function PrompterToolbar({
           className={`rounded-lg border px-3 py-1.5 text-sm ${
             mode === "manual"
               ? "border-emerald-400 bg-emerald-400 font-semibold text-black"
-              : "border-white/15 bg-white/5"
+              : "border-black/15 bg-black/5 dark:border-white/15 dark:bg-white/5"
           }`}
         >
           ✋ Manual
@@ -80,23 +96,17 @@ export function PrompterToolbar({
       </div>
 
       {mode === "auto" && (
-        <button
-          onClick={onPlayingToggle}
-          className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm"
-        >
+        <button onClick={onPlayingToggle} className={BUTTON_CLASS}>
           {playing ? "⏸ Pausar" : "▶ Reanudar"}
         </button>
       )}
 
-      <button
-        onClick={onReset}
-        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm"
-      >
+      <button onClick={onReset} className={BUTTON_CLASS}>
         ⟲ Inicio
       </button>
 
       <div className="flex items-center gap-2">
-        <label className="text-xs text-zinc-400">Velocidad</label>
+        <label className="text-xs text-zinc-500 dark:text-zinc-400">Velocidad</label>
         <input
           type="range"
           min={minSpeed}
@@ -104,12 +114,12 @@ export function PrompterToolbar({
           step={speedStep}
           defaultValue={defaultSpeed}
           onInput={(e) => onSpeedInput(Number(e.currentTarget.value))}
-          className="w-24 accent-emerald-400"
+          className="w-24 accent-emerald-500 dark:accent-emerald-400"
         />
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="text-xs text-zinc-400">Tamaño</label>
+        <label className="text-xs text-zinc-500 dark:text-zinc-400">Tamaño</label>
         <input
           ref={fontSizeInputRef}
           type="range"
@@ -117,32 +127,27 @@ export function PrompterToolbar({
           max={maxFontSize}
           defaultValue={defaultFontSize}
           onInput={(e) => onFontSizeInput(Number(e.currentTarget.value))}
-          className="w-24 accent-emerald-400"
+          className="w-24 accent-emerald-500 dark:accent-emerald-400"
         />
       </div>
 
-      <label className="flex items-center gap-1.5 text-xs text-zinc-400">
+      <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         <input
           type="checkbox"
           checked={mirror}
           onChange={(e) => onMirrorChange(e.target.checked)}
-          className="h-4 w-4 accent-emerald-400"
+          className="h-4 w-4 accent-emerald-500 dark:accent-emerald-400"
         />
         Espejo
       </label>
 
       <div className="flex-1" />
 
-      <button
-        onClick={onFullscreen}
-        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm"
-      >
+      <ThemeToggle className={BUTTON_CLASS} />
+      <button onClick={onFullscreen} className={BUTTON_CLASS}>
         ⛶
       </button>
-      <button
-        onClick={onHide}
-        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm"
-      >
+      <button onClick={onHide} className={BUTTON_CLASS}>
         ▲ Ocultar
       </button>
     </div>

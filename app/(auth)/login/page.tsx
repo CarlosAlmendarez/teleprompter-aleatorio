@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -32,6 +33,7 @@ export default async function LoginPage() {
             type="submit"
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-black/[.03] dark:border-white/15 dark:text-zinc-50 dark:hover:bg-white/[.05]"
           >
+            <GoogleIcon className="h-4 w-4" />
             Continuar con Google
           </button>
         </form>
