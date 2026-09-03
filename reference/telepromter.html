@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Teleprompter</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #17181c;
+    --text: #f2f2f2;
+    --accent: #4dd0a7;
+    --muted: #8a8d94;
+    --border: #2a2c32;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  /* --- Toolbar --- */
+  #toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    z-index: 10;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  #toolbar.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  button {
+    background: #22242b; color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  button.active { background: var(--accent); color: #06231a; border-color: var(--accent); font-weight: 600; }
+  button:active { transform: scale(0.96); }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .group label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  input[type=range] { width: 90px; accent-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .spacer { flex: 1; }
+
+  /* --- Editor --- */
+  #editor {
+    display: none;
+    flex: 1;
+    background: var(--bg);
+    padding: 16px;
+  }
+  #editor.show { display: flex; flex-direction: column; }
+  #scriptInput {
+    flex: 1;
+    background: #101114;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 18px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    font-family: inherit;
+  }
+  #editorHint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  /* --- Prompter --- */
+  #viewport {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    scrollbar-width: none;
+  }
+  #viewport::-webkit-scrollbar { display: none; }
+  #textLayer {
+    padding: 45vh 6vw 60vh 6vw;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.5;
+    transition: font-size .15s ease;
+  }
+  #textLayer.mirror { transform: scaleX(-1); }
+
+  /* center guide line */
+  #guide {
+    position: absolute;
+    left: 0; right: 0; top: 40%;
+    height: 1px;
+    background: rgba(77,208,167,0.35);
+    pointer-events: none;
+  }
+
+  #hint {
+    position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: var(--muted);
+    background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 20px;
+    opacity: 0.8; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="toolbar">
+    <button id="btnEdit">✏️ Editar</button>
+    <div class="group">
+      <button id="modeAuto" class="active">▶ Auto</button>
+      <button id="modeManual">✋ Manual</button>
+    </div>
+    <button id="btnPlay">⏸ Pausar</button>
+    <button id="btnReset">⟲ Inicio</button>
+    <div class="group">
+      <label>Velocidad</label>
+      <input type="range" id="speed" min="5" max="200" value="40">
+    </div>
+    <div class="group">
+      <label>Tamaño</label>
+      <input type="range" id="fontSize" min="18" max="90" value="40">
+    </div>
+    <div class="group">
+      <label><input type="checkbox" id="mirror"> Espejo</label>
+    </div>
+    <div class="spacer"></div>
+    <button id="btnFullscreen">⛶</button>
+    <button id="btnHideBar">▲ Ocultar</button>
+  </div>
+
+  <div id="editor">
+    <textarea id="scriptInput" placeholder="Pega o escribe tu guion/letra aquí..."></textarea>
+    <div id="editorHint">Toca "Listo" (o el botón editar de nuevo) cuando termines. Se guarda automáticamente en este dispositivo.</div>
+  </div>
+
+  <div id="viewport">
+    <div id="guide"></div>
+    <div id="textLayer"></div>
+  </div>
+
+  <div id="hint">Toca la pantalla para mostrar/ocultar controles · Espacio = play/pausa</div>
+
+</div>
+
+<script>
+(function() {
+  const toolbar = document.getElementById('toolbar');
+  const editor = document.getElementById('editor');
+  const scriptInput = document.getElementById('scriptInput');
+  const viewport = document.getElementById('viewport');
+  const textLayer = document.getElementById('textLayer');
+  const btnEdit = document.getElementById('btnEdit');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnReset = document.getElementById('btnReset');
+  const modeAuto = document.getElementById('modeAuto');
+  const modeManual = document.getElementById('modeManual');
+  const speedInput = document.getElementById('speed');
+  const fontSizeInput = document.getElementById('fontSize');
+  const mirrorCheckbox = document.getElementById('mirror');
+  const btnFullscreen = document.getElementById('btnFullscreen');
+  const btnHideBar = document.getElementById('btnHideBar');
+  const hint = document.getElementById('hint');
+
+  let mode = 'auto';       // 'auto' | 'manual'
+  let playing = true;
+  let speed = parseInt(speedInput.value, 10); // px/sec
+  let lastTs = null;
+  let rafId = null;
+
+  const DEFAULT_TEXT = "Pega aquí tu guion o letra.\n\nToca 'Editar' arriba para escribir.\n\nModo Automático: el texto se desplaza solo a la velocidad que elijas.\n\nModo Manual: desliza con el dedo, usa la rueda del mouse, o las flechas ↑ ↓.";
+
+  // ---- Persistence (personal, this device only) ----
+  async function loadScript() {
+    try {
+      const res = await window.storage.get('teleprompter:script');
+      return res && res.value ? res.value : DEFAULT_TEXT;
+    } catch (e) {
+      return DEFAULT_TEXT;
+    }
+  }
+  let saveTimeout = null;
+  function saveScriptDebounced(text) {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      try { await window.storage.set('teleprompter:script', text); } catch (e) {}
+    }, 500);
+  }
+
+  function renderText(text) {
+    textLayer.textContent = text;
+  }
+
+  // ---- Editor toggle ----
+  function openEditor() {
+    editor.classList.add('show');
+    stopAuto();
+    btnEdit.textContent = '✅ Listo';
+  }
+  function closeEditor() {
+    editor.classList.remove('show');
+    renderText(scriptInput.value || DEFAULT_TEXT);
+    saveScriptDebounced(scriptInput.value);
+    btnEdit.textContent = '✏️ Editar';
+  }
+  btnEdit.addEventListener('click', () => {
+    if (editor.classList.contains('show')) closeEditor();
+    else openEditor();
+  });
+
+  // ---- Mode switching ----
+  function setMode(newMode) {
+    mode = newMode;
+    modeAuto.classList.toggle('active', mode === 'auto');
+    modeManual.classList.toggle('active', mode === 'manual');
+    btnPlay.style.display = mode === 'auto' ? 'inline-block' : 'none';
+    if (mode === 'auto' && playing) startAuto();
+    else stopAuto();
+  }
+  modeAuto.addEventListener('click', () => setMode('auto'));
+  modeManual.addEventListener('click', () => setMode('manual'));
+
+  // ---- Auto-scroll loop ----
+  function step(ts) {
+    if (lastTs === null) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    viewport.scrollTop += speed * dt;
+    rafId = requestAnimationFrame(step);
+  }
+  function startAuto() {
+    if (rafId) return;
+    lastTs = null;
+    rafId = requestAnimationFrame(step);
+  }
+  function stopAuto() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+  function setPlaying(p) {
+    playing = p;
+    btnPlay.textContent = playing ? '⏸ Pausar' : '▶ Reanudar';
+    if (mode === 'auto') {
+      if (playing) startAuto(); else stopAuto();
+    }
+  }
+  btnPlay.addEventListener('click', () => setPlaying(!playing));
+
+  btnReset.addEventListener('click', () => {
+    viewport.scrollTop = 0;
+  });
+
+  // ---- Speed / font size / mirror ----
+  speedInput.addEventListener('input', () => {
+    speed = parseInt(speedInput.value, 10);
+  });
+  fontSizeInput.addEventListener('input', () => {
+    textLayer.style.fontSize = fontSizeInput.value + 'px';
+  });
+  mirrorCheckbox.addEventListener('change', () => {
+    textLayer.classList.toggle('mirror', mirrorCheckbox.checked);
+  });
+
+  // ---- Fullscreen ----
+  btnFullscreen.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  });
+
+  // ---- Hide/show toolbar ----
+  let barVisible = true;
+  function setBarVisible(v) {
+    barVisible = v;
+    toolbar.classList.toggle('hidden', !v);
+  }
+  btnHideBar.addEventListener('click', () => setBarVisible(false));
+  viewport.addEventListener('click', () => {
+    if (editor.classList.contains('show')) return;
+    setBarVisible(!barVisible);
+  });
+
+  // ---- Keyboard controls ----
+  window.addEventListener('keydown', (e) => {
+    if (editor.classList.contains('show')) return;
+    if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+    else if (e.code === 'ArrowDown') { viewport.scrollTop += 80; }
+    else if (e.code === 'ArrowUp') { viewport.scrollTop -= 80; }
+    else if (e.code === 'ArrowRight') { speedInput.value = Math.min(200, speed + 5); speed = parseInt(speedInput.value,10); }
+    else if (e.code === 'ArrowLeft') { speedInput.value = Math.max(5, speed - 5); speed = parseInt(speedInput.value,10); }
+    else if (e.key === 'm' || e.key === 'M') { setMode(mode === 'auto' ? 'manual' : 'auto'); }
+    else if (e.key === 'f' || e.key === 'F') { btnFullscreen.click(); }
+  });
+
+  // ---- Init ----
+  (async function init() {
+    const saved = await loadScript();
+    scriptInput.value = saved;
+    renderText(saved);
+    textLayer.style.fontSize = fontSizeInput.value + 'px';
+    setMode('auto');
+    setPlaying(true);
+  })();
+
+  // hide the bottom hint after a few seconds
+  setTimeout(() => { hint.style.transition = 'opacity 1s'; hint.style.opacity = '0'; }, 6000);
+})();
+</script>
+</body>
+</html>
