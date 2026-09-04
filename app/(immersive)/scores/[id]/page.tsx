@@ -33,6 +33,7 @@ export default async function ScorePlayerPage({
       data={chartData}
       lyricSegments={lyricSegments}
       backHref={`/documents/${doc.id}`}
+      pdf={doc.metadata?.pdf ?? null}
     />
   );
 }

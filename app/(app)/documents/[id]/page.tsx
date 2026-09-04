@@ -8,6 +8,8 @@ import { DocumentEditor } from "@/components/library/DocumentEditor";
 import { DocumentViewerHeader } from "@/components/library/DocumentViewerHeader";
 import { ChordChart } from "@/components/scores/ChordChart";
 import { LyricsEditor } from "@/components/scores/LyricsEditor";
+import { PdfSyncEditor } from "@/components/scores/PdfSyncEditor";
+import { SyncedPdfPane } from "@/components/pdf/SyncedPdfPane";
 import { parseChordChart } from "@/lib/musicxml/parseChordChart";
 import { availableMeasureNumbers } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentRow } from "@/lib/types";
@@ -58,6 +60,12 @@ export default async function DocumentPage({
           metadata={doc.metadata}
           measureNumbers={availableMeasureNumbers(chartData.measures)}
         />
+        <PdfSyncEditor
+          documentId={doc.id}
+          metadata={doc.metadata}
+          measureNumbers={availableMeasureNumbers(chartData.measures)}
+          withAnchors
+        />
       </div>
     );
   }
@@ -66,15 +74,26 @@ export default async function DocumentPage({
     return (
       <div className="flex flex-1 flex-col">
         <DocumentViewerHeader documentId={doc.id} title={doc.title} folderId={doc.folderId} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-          <p className="max-w-sm text-sm text-zinc-500">
-            El visor de PDF llega en el paso del Modo Partituras. Por ahora
-            solo puedes crear su registro.
-          </p>
-        </div>
+        {doc.blobUrl ? (
+          <div className="flex min-h-[24rem] flex-1 flex-col [height:calc(100dvh-9rem)]">
+            <SyncedPdfPane url={doc.blobUrl} interactive className="flex-1" />
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <p className="max-w-sm text-sm text-zinc-500">
+              Este documento PDF no tiene archivo asociado. Vuelve a importarlo
+              desde la biblioteca.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
 
-  return <DocumentEditor document={serialized} />;
+  return (
+    <div className="flex flex-1 flex-col">
+      <DocumentEditor document={serialized} />
+      <PdfSyncEditor documentId={doc.id} metadata={doc.metadata} />
+    </div>
+  );
 }

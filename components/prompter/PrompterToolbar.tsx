@@ -31,6 +31,9 @@ export function PrompterToolbar({
   onMirrorChange,
   onFullscreen,
   onHide,
+  pdfAvailable = false,
+  pdfVisible = false,
+  onTogglePdf,
 }: {
   visible: boolean;
   mode: PrompterMode;
@@ -54,6 +57,9 @@ export function PrompterToolbar({
   onMirrorChange: (checked: boolean) => void;
   onFullscreen: () => void;
   onHide: () => void;
+  pdfAvailable?: boolean;
+  pdfVisible?: boolean;
+  onTogglePdf?: () => void;
 }) {
   return (
     <div
@@ -143,6 +149,11 @@ export function PrompterToolbar({
 
       <div className="flex-1" />
 
+      {pdfAvailable && (
+        <button onClick={onTogglePdf} className={BUTTON_CLASS} aria-pressed={pdfVisible}>
+          {pdfVisible ? "⊟ Ocultar PDF" : "⊞ Ver PDF"}
+        </button>
+      )}
       <ThemeToggle className={BUTTON_CLASS} />
       <button onClick={onFullscreen} className={BUTTON_CLASS}>
         ⛶

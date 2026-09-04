@@ -88,6 +88,26 @@ export const documentTypeEnum = pgEnum("document_type", [
   "chordpro",
 ]);
 
+export type PdfAnchor = {
+  /** 1-based page number in the attached PDF. */
+  page: number;
+  /** Measure number the top of that page should line up with. */
+  measure: number;
+};
+
+export type DocumentPdfAttachment = {
+  /** Vercel Blob URL of the attached PDF. */
+  url: string;
+  /** Page count, cached from the first client-side render. */
+  pageCount?: number;
+  /**
+   * Optional `page → measure` alignment points (musicxml only). With none,
+   * the split-screen player scrolls the PDF strictly in proportion to
+   * elapsed playback time; with anchors it interpolates between them.
+   */
+  anchors?: PdfAnchor[];
+};
+
 export type DocumentMetadata = {
   key?: string;
   tempo?: number;
@@ -100,6 +120,12 @@ export type DocumentMetadata = {
    * as the chords, without needing a full visual alignment editor.
    */
   lyrics?: string;
+  /**
+   * A PDF (sheet music, full score, annotated lead sheet…) attached to this
+   * document so the immersive player can show it in a split pane that scrolls
+   * in lockstep with playback. Available on any document type.
+   */
+  pdf?: DocumentPdfAttachment;
 };
 
 export const documents = pgTable("documents", {

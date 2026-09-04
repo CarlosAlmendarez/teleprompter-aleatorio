@@ -1,27 +1,9 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { documents, folders } from "@/lib/db/schema";
 import { isResponse, requireUserId } from "@/lib/api/require-user";
-
-const metadataSchema = z
-  .object({
-    key: z.string().max(20).optional(),
-    tempo: z.number().int().positive().optional(),
-    notes: z.string().max(2000).optional(),
-    durationSec: z.number().int().positive().optional(),
-    lyrics: z.string().max(200_000).optional(),
-  })
-  .partial();
-
-const updateDocumentSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  folderId: z.uuid().nullable().optional(),
-  content: z.string().max(500_000).nullable().optional(),
-  blobUrl: z.url().nullable().optional(),
-  metadata: metadataSchema.optional(),
-});
+import { updateDocumentSchema } from "@/lib/api/document-schema";
 
 async function ownedDocument(userId: string, id: string) {
   const [row] = await db

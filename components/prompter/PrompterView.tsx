@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePrompterEngine } from "./usePrompterEngine";
 import { PrompterToolbar } from "./PrompterToolbar";
+import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
 
 const MIN_FONT = 18;
 const MAX_FONT = 90;
@@ -15,15 +16,19 @@ export function PrompterView({
   title,
   content,
   backHref,
+  pdfUrl,
 }: {
   title: string;
   content: string;
   backHref: string;
+  pdfUrl?: string | null;
 }) {
   const router = useRouter();
   const viewportRef = useRef<HTMLDivElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const fontSizeInputRef = useRef<HTMLInputElement>(null);
+  const pdfPaneRef = useRef<PdfPaneHandle>(null);
+  const [showPdf, setShowPdf] = useState(Boolean(pdfUrl));
 
   const {
     mode,
@@ -94,7 +99,15 @@ export function PrompterView({
     }
   }, []);
 
+  function handleViewportScroll() {
+    const el = viewportRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    pdfPaneRef.current?.seekFraction(max > 0 ? el.scrollTop / max : 0);
+  }
+
   const hasContent = content.trim().length > 0;
+  const pdfVisible = Boolean(pdfUrl) && showPdf;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white text-zinc-900 select-none dark:bg-black dark:text-zinc-100">
@@ -121,32 +134,44 @@ export function PrompterView({
         onMirrorChange={setMirror}
         onFullscreen={toggleFullscreen}
         onHide={() => setBarVisible(false)}
+        pdfAvailable={Boolean(pdfUrl)}
+        pdfVisible={pdfVisible}
+        onTogglePdf={() => setShowPdf((v) => !v)}
       />
 
-      <div
-        ref={viewportRef}
-        onClick={() => setBarVisible((v) => !v)}
-        className="no-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
-      >
-        <div className="pointer-events-none absolute inset-x-0 top-[40%] h-px bg-emerald-500/35 dark:bg-emerald-400/35" />
-        {hasContent ? (
-          <div
-            ref={textLayerRef}
-            className={`whitespace-pre-wrap break-words px-[6vw] pt-[45vh] pb-[60vh] leading-relaxed transition-[font-size] duration-150 ${
-              mirror ? "[transform:scaleX(-1)]" : ""
-            }`}
-          >
-            {content}
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-zinc-500 dark:text-zinc-400">Este guion todavía está vacío.</p>
-            <Link
-              href={backHref}
-              className="rounded-lg border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/5"
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div
+          ref={viewportRef}
+          onScroll={handleViewportScroll}
+          onClick={() => setBarVisible((v) => !v)}
+          className="no-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-[40%] h-px bg-emerald-500/35 dark:bg-emerald-400/35" />
+          {hasContent ? (
+            <div
+              ref={textLayerRef}
+              className={`whitespace-pre-wrap break-words px-[6vw] pt-[45vh] pb-[60vh] leading-relaxed transition-[font-size] duration-150 ${
+                mirror ? "[transform:scaleX(-1)]" : ""
+              }`}
             >
-              Editar guion
-            </Link>
+              {content}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-zinc-500 dark:text-zinc-400">Este guion todavía está vacío.</p>
+              <Link
+                href={backHref}
+                className="rounded-lg border border-black/15 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/5"
+              >
+                Editar guion
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {pdfVisible && pdfUrl && (
+          <div className="flex min-h-0 flex-1 flex-col border-t border-black/10 md:border-l md:border-t-0 dark:border-white/10">
+            <SyncedPdfPane ref={pdfPaneRef} url={pdfUrl} className="flex-1" />
           </div>
         )}
       </div>

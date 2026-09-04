@@ -27,6 +27,7 @@ export default async function PrompterPage({
       title={doc.title}
       content={doc.content ?? ""}
       backHref={`/documents/${doc.id}`}
+      pdfUrl={doc.metadata?.pdf?.url ?? null}
     />
   );
 }

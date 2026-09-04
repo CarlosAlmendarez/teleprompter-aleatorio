@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DocumentRow, DocumentType, FolderRow } from "@/lib/types";
+import { uploadPdf } from "@/lib/pdf/upload-client";
 
 const MUSICXML_EXTENSIONS = [".musicxml", ".xml"];
 
@@ -78,11 +79,29 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
     if (!file) return;
 
     const lowerName = file.name.toLowerCase();
+    const isPdf = lowerName.endsWith(".pdf");
     const isMusicXml = MUSICXML_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
-    const type: DocumentType = isMusicXml ? "musicxml" : "text";
 
     setImporting(true);
     try {
+      if (isPdf) {
+        const title = file.name.replace(/\.pdf$/i, "") || "Sin título";
+        const blobUrl = await uploadPdf(file);
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "pdf", title, folderId, blobUrl }),
+        });
+        if (!res.ok) {
+          window.alert("No se pudo importar el PDF.");
+          return;
+        }
+        const created: DocumentRow = await res.json();
+        router.push(`/documents/${created.id}`);
+        return;
+      }
+
+      const type: DocumentType = isMusicXml ? "musicxml" : "text";
       const text = await file.text();
       const workTitle = isMusicXml
         ? text.match(/<work-title>\s*([\s\S]*?)\s*<\/work-title>/)?.[1]
@@ -101,6 +120,8 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
       }
       const created: DocumentRow = await res.json();
       router.push(`/documents/${created.id}`);
+    } catch {
+      window.alert("No se pudo importar el archivo.");
     } finally {
       setImporting(false);
     }
@@ -159,7 +180,7 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".txt,.musicxml,.xml"
+          accept=".txt,.musicxml,.xml,.pdf"
           onChange={handleImportFile}
           className="hidden"
         />
@@ -168,7 +189,7 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
           disabled={importing}
           className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium hover:bg-black/[.03] disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/[.05]"
         >
-          {importing ? "Importando…" : "⇪ Importar archivo (.txt / .musicxml)"}
+          {importing ? "Importando…" : "⇪ Importar archivo (.txt / .musicxml / .pdf)"}
         </button>
       </div>
 

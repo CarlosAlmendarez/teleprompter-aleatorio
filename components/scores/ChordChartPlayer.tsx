@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
 import type { ChordChart } from "@/lib/musicxml/parseChordChart";
 import type { LyricSegment } from "@/lib/musicxml/parseLyricChart";
+import type { DocumentPdfAttachment } from "@/lib/db/schema";
 
 const MIN_SPEED_PCT = 50;
 const MAX_SPEED_PCT = 150;
@@ -28,11 +30,13 @@ export function ChordChartPlayer({
   data,
   lyricSegments = [],
   backHref,
+  pdf,
 }: {
   title: string;
   data: ChordChart;
   lyricSegments?: LyricSegment[];
   backHref: string;
+  pdf?: DocumentPdfAttachment | null;
 }) {
   const router = useRouter();
   const measures = data.measures;
@@ -42,6 +46,7 @@ export function ChordChartPlayer({
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeLyricIndex, setActiveLyricIndex] = useState(0);
   const [barVisible, setBarVisible] = useState(true);
+  const [showPdf, setShowPdf] = useState(Boolean(pdf?.url));
 
   // Playback clock lives in refs — the rAF loop only reads/writes these and
   // calls setActiveIndex on measure-boundary crossings (a handful of times
@@ -53,6 +58,13 @@ export function ChordChartPlayer({
   const activeIndexRef = useRef(0);
   const activeLyricIndexRef = useRef(0);
   const measureElRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const pdfPaneRef = useRef<PdfPaneHandle>(null);
+
+  // measure number → seconds from song start, for PDF anchor interpolation.
+  const measureStartSec = useMemo(
+    () => new Map(measures.map((m) => [Number(m.number), m.startSec])),
+    [measures],
+  );
 
   function currentElapsed(): number {
     if (!playingState()) return elapsedBaseRef.current;
@@ -62,8 +74,13 @@ export function ChordChartPlayer({
     return rafId.current !== null;
   }
 
+  function syncPdf(elapsed: number) {
+    pdfPaneRef.current?.seekSeconds(elapsed);
+  }
+
   function step() {
     const elapsed = currentElapsed();
+    syncPdf(elapsed);
     if (elapsed >= data.totalDurationSec) {
       elapsedBaseRef.current = data.totalDurationSec;
       stopLoop();
@@ -109,6 +126,7 @@ export function ChordChartPlayer({
       rafId.current = requestAnimationFrame(step);
     } else {
       elapsedBaseRef.current = currentElapsed();
+      syncPdf(elapsedBaseRef.current);
       stopLoop();
     }
     setPlayingState(next);
@@ -122,6 +140,7 @@ export function ChordChartPlayer({
     activeLyricIndexRef.current = 0;
     setActiveLyricIndex(0);
     setPlayingState(false);
+    syncPdf(0);
   }
 
   function handleSpeedInput(value: number) {
@@ -158,6 +177,7 @@ export function ChordChartPlayer({
   const activeLyric = lyricSegments[activeLyricIndex];
   const nextLyric = lyricSegments[activeLyricIndex + 1];
   const activeLyricChords = activeLyric ? measureByNumber.get(activeLyric.measureNumber)?.chords : undefined;
+  const pdfVisible = Boolean(pdf?.url) && showPdf;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white text-zinc-900 select-none dark:bg-black dark:text-zinc-100">
@@ -192,84 +212,110 @@ export function ChordChartPlayer({
         </div>
 
         <div className="flex-1" />
+        {pdf?.url && (
+          <button
+            onClick={() => setShowPdf((v) => !v)}
+            className={BUTTON_CLASS}
+            aria-pressed={pdfVisible}
+          >
+            {pdfVisible ? "⊟ Ocultar PDF" : "⊞ Ver PDF"}
+          </button>
+        )}
         <ThemeToggle className={BUTTON_CLASS} />
         <button onClick={() => setBarVisible(false)} className={BUTTON_CLASS}>
           ▲ Ocultar
         </button>
       </div>
 
-      {hasLyrics ? (
-        <div
-          onClick={() => setBarVisible((v) => !v)}
-          className="flex flex-col items-center justify-center gap-2 border-b border-black/10 bg-black/[.02] px-4 py-8 text-center dark:border-white/10 dark:bg-white/[.03]"
-        >
-          {nextLyric && (
-            <div className="text-sm text-zinc-400 dark:text-zinc-600">
-              {nextLyric.lines[0] ?? ""}
-            </div>
-          )}
-          {activeLyricChords && activeLyricChords.length > 0 && (
-            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-              {activeLyricChords.join(" · ")}
-            </div>
-          )}
-          <div className="whitespace-pre-wrap text-3xl font-semibold leading-snug sm:text-4xl">
-            {activeLyric?.lines.join("\n") || "—"}
-          </div>
-        </div>
-      ) : (
-        <div
-          onClick={() => setBarVisible((v) => !v)}
-          className="flex items-center justify-center gap-10 border-b border-black/10 bg-black/[.02] px-4 py-6 dark:border-white/10 dark:bg-white/[.03]"
-        >
-          <div className="text-center">
-            <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Compás {activeMeasure?.number ?? "—"}
-            </div>
-            <div className="text-6xl font-bold sm:text-7xl">
-              {activeMeasure?.chords.join(" · ") || "—"}
-            </div>
-          </div>
-          {nextMeasure && nextMeasure.chords.length > 0 && (
-            <div className="text-center text-zinc-400 dark:text-zinc-500">
-              <div className="text-xs uppercase tracking-wide">Sigue</div>
-              <div className="text-2xl font-semibold">{nextMeasure.chords.join(" · ")}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="no-scrollbar flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
-          {measures.map((measure, i) => (
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col">
+          {hasLyrics ? (
             <div
-              key={measure.number}
-              ref={(el) => {
-                measureElRefs.current[i] = el;
-              }}
-              className={`flex min-h-20 flex-col justify-between rounded-xl border p-3 transition-colors ${
-                i === activeIndex
-                  ? "border-emerald-500 bg-emerald-500/10 dark:border-emerald-400 dark:bg-emerald-400/10"
-                  : "border-black/10 bg-black/[.02] dark:border-white/10 dark:bg-white/[.03]"
-              }`}
+              onClick={() => setBarVisible((v) => !v)}
+              className="flex flex-col items-center justify-center gap-2 border-b border-black/10 bg-black/[.02] px-4 py-8 text-center dark:border-white/10 dark:bg-white/[.03]"
             >
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                {measure.number}
-              </span>
-              <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                {measure.chords.length > 0 ? (
-                  measure.chords.map((chord, ci) => (
-                    <span key={ci} className="text-xl font-bold leading-none">
-                      {chord}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-zinc-300 dark:text-zinc-700">%</span>
-                )}
+              {nextLyric && (
+                <div className="text-sm text-zinc-400 dark:text-zinc-600">
+                  {nextLyric.lines[0] ?? ""}
+                </div>
+              )}
+              {activeLyricChords && activeLyricChords.length > 0 && (
+                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  {activeLyricChords.join(" · ")}
+                </div>
+              )}
+              <div className="whitespace-pre-wrap text-3xl font-semibold leading-snug sm:text-4xl">
+                {activeLyric?.lines.join("\n") || "—"}
               </div>
             </div>
-          ))}
+          ) : (
+            <div
+              onClick={() => setBarVisible((v) => !v)}
+              className="flex items-center justify-center gap-10 border-b border-black/10 bg-black/[.02] px-4 py-6 dark:border-white/10 dark:bg-white/[.03]"
+            >
+              <div className="text-center">
+                <div className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Compás {activeMeasure?.number ?? "—"}
+                </div>
+                <div className="text-6xl font-bold sm:text-7xl">
+                  {activeMeasure?.chords.join(" · ") || "—"}
+                </div>
+              </div>
+              {nextMeasure && nextMeasure.chords.length > 0 && (
+                <div className="text-center text-zinc-400 dark:text-zinc-500">
+                  <div className="text-xs uppercase tracking-wide">Sigue</div>
+                  <div className="text-2xl font-semibold">{nextMeasure.chords.join(" · ")}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="no-scrollbar flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
+              {measures.map((measure, i) => (
+                <div
+                  key={measure.number}
+                  ref={(el) => {
+                    measureElRefs.current[i] = el;
+                  }}
+                  className={`flex min-h-20 flex-col justify-between rounded-xl border p-3 transition-colors ${
+                    i === activeIndex
+                      ? "border-emerald-500 bg-emerald-500/10 dark:border-emerald-400 dark:bg-emerald-400/10"
+                      : "border-black/10 bg-black/[.02] dark:border-white/10 dark:bg-white/[.03]"
+                  }`}
+                >
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                    {measure.number}
+                  </span>
+                  <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                    {measure.chords.length > 0 ? (
+                      measure.chords.map((chord, ci) => (
+                        <span key={ci} className="text-xl font-bold leading-none">
+                          {chord}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-zinc-300 dark:text-zinc-700">%</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {pdfVisible && pdf?.url && (
+          <div className="flex min-h-0 flex-1 flex-col border-t border-black/10 md:border-l md:border-t-0 dark:border-white/10">
+            <SyncedPdfPane
+              ref={pdfPaneRef}
+              url={pdf.url}
+              anchors={pdf.anchors}
+              measureStartSec={measureStartSec}
+              totalDurationSec={data.totalDurationSec}
+              className="flex-1"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
