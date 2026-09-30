@@ -59,6 +59,8 @@ export function ChordChartPlayer({
   const activeLyricIndexRef = useRef(0);
   const measureElRefs = useRef<Array<HTMLDivElement | null>>([]);
   const pdfPaneRef = useRef<PdfPaneHandle>(null);
+  const tempoInputRef = useRef<HTMLInputElement>(null);
+  const [hintVisible, setHintVisible] = useState(true);
 
   // measure number → seconds from song start, for PDF anchor interpolation.
   const measureStartSec = useMemo(
@@ -151,7 +153,43 @@ export function ChordChartPlayer({
     speedRef.current = value;
   }
 
+  function nudgeTempo(delta: number) {
+    const next = Math.min(MAX_SPEED_PCT, Math.max(MIN_SPEED_PCT, speedRef.current + delta));
+    handleSpeedInput(next);
+    // Keep the (uncontrolled) slider in step with keyboard changes.
+    if (tempoInputRef.current) tempoInputRef.current.value = String(next);
+  }
+
+  /** Jumps playback to the start of measure `index`, keeping play/pause state. */
+  function seekToMeasure(index: number) {
+    if (measures.length === 0) return;
+    const clamped = Math.min(measures.length - 1, Math.max(0, index));
+    elapsedBaseRef.current = measures[clamped].startSec;
+    startPerfRef.current = performance.now();
+    activeIndexRef.current = clamped;
+    setActiveIndex(clamped);
+    if (lyricSegments.length > 0) {
+      const lyricIndex = findActiveIndex(lyricSegments, elapsedBaseRef.current);
+      activeLyricIndexRef.current = lyricIndex;
+      setActiveLyricIndex(lyricIndex);
+    }
+    syncPdf(elapsedBaseRef.current);
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
   useEffect(() => stopLoop, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setHintVisible(false), 6000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     measureElRefs.current[activeIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -162,6 +200,24 @@ export function ChordChartPlayer({
       if (e.code === "Space") {
         e.preventDefault();
         setPlaying(!playingState());
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        seekToMeasure(activeIndexRef.current + 1);
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        seekToMeasure(activeIndexRef.current - 1);
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        nudgeTempo(SPEED_STEP);
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        nudgeTempo(-SPEED_STEP);
+      } else if (e.code === "Home" || e.key === "r" || e.key === "R") {
+        reset();
+      } else if (e.key === "f" || e.key === "F") {
+        toggleFullscreen();
+      } else if (e.key === "h" || e.key === "H") {
+        setBarVisible((v) => !v);
       } else if (e.key === "Escape") {
         router.push(backHref);
       }
@@ -201,6 +257,7 @@ export function ChordChartPlayer({
         <div className="flex items-center gap-2">
           <label className="text-xs text-zinc-500 dark:text-zinc-400">Tempo</label>
           <input
+            ref={tempoInputRef}
             type="range"
             min={MIN_SPEED_PCT}
             max={MAX_SPEED_PCT}
@@ -222,6 +279,9 @@ export function ChordChartPlayer({
           </button>
         )}
         <ThemeToggle className={BUTTON_CLASS} />
+        <button onClick={toggleFullscreen} className={BUTTON_CLASS} title="Pantalla completa (F)">
+          ⛶
+        </button>
         <button onClick={() => setBarVisible(false)} className={BUTTON_CLASS}>
           ▲ Ocultar
         </button>
@@ -316,6 +376,13 @@ export function ChordChartPlayer({
             />
           </div>
         )}
+      </div>
+      <div
+        className={`pointer-events-none fixed bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/10 px-3 py-1 text-xs text-zinc-500 transition-opacity duration-1000 dark:bg-black/40 dark:text-zinc-400 ${
+          hintVisible ? "opacity-80" : "opacity-0"
+        }`}
+      >
+        Espacio = play/pausa · ←/→ compás · ↑/↓ tempo · R inicio · F pantalla completa
       </div>
     </div>
   );
