@@ -56,3 +56,33 @@ export function parseLyricSegments(
 export function availableMeasureNumbers(measures: ChordChart["measures"]): string[] {
   return measures.map((m) => m.number);
 }
+
+export type LyricIssues = {
+  /** `{m:N}` tags whose measure doesn't exist in the chart (text is dropped). */
+  unknownMeasures: string[];
+  /** Non-blank lines before the first valid tag (never shown in the player). */
+  untaggedLeadingLines: number;
+};
+
+/**
+ * Reports the lyric lines `parseLyricSegments` silently drops, so the editor
+ * can warn about them instead of the text just never appearing on stage.
+ */
+export function findLyricIssues(lyricsText: string, measureNumbers: string[]): LyricIssues {
+  const known = new Set(measureNumbers);
+  const unknown = new Set<string>();
+  let seenValidTag = false;
+  let untaggedLeadingLines = 0;
+
+  for (const rawLine of lyricsText.split("\n")) {
+    const tagMatch = rawLine.match(MEASURE_TAG_RE);
+    if (tagMatch) {
+      if (known.has(tagMatch[1])) seenValidTag = true;
+      else unknown.add(tagMatch[1]);
+      continue;
+    }
+    if (!seenValidTag && rawLine.trim().length > 0) untaggedLeadingLines += 1;
+  }
+
+  return { unknownMeasures: [...unknown], untaggedLeadingLines };
+}

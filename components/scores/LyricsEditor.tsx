@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DocumentMetadata } from "@/lib/db/schema";
+import { findLyricIssues } from "@/lib/musicxml/parseLyricChart";
 
 const SAVE_DELAY_MS = 500;
 
@@ -62,6 +63,24 @@ export function LyricsEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const issues = findLyricIssues(lyrics, measureNumbers);
+  const warnings: string[] = [];
+  if (issues.unknownMeasures.length > 0) {
+    const tags = issues.unknownMeasures.map((n) => `{m:${n}}`).join(", ");
+    warnings.push(
+      issues.unknownMeasures.length === 1
+        ? `La etiqueta ${tags} no corresponde a ningún compás: su texto no se mostrará.`
+        : `Las etiquetas ${tags} no corresponden a ningún compás: su texto no se mostrará.`,
+    );
+  }
+  if (issues.untaggedLeadingLines > 0) {
+    warnings.push(
+      issues.untaggedLeadingLines === 1
+        ? "1 línea está antes de la primera etiqueta {m:N} válida y no se mostrará."
+        : `${issues.untaggedLeadingLines} líneas están antes de la primera etiqueta {m:N} válida y no se mostrarán.`,
+    );
+  }
+
   const statusLabel = status === "saving" ? "Guardando…" : status === "pending" ? "Sin guardar…" : "Guardado";
 
   return (
@@ -84,6 +103,16 @@ export function LyricsEditor({
         placeholder={`{m:1}\nHey Ming, I thought there were gonna be chicks at this party\n{m:57}\nI never thought that I'd catch this love bug again`}
         className="min-h-[30vh] flex-1 resize-none rounded-xl border border-black/10 bg-black/[.02] p-4 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-white/[.03]"
       />
+      {warnings.length > 0 && (
+        <ul
+          role="status"
+          className="flex flex-col gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+        >
+          {warnings.map((w) => (
+            <li key={w}>⚠ {w}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
