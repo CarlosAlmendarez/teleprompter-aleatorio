@@ -11,7 +11,7 @@ export default async function PrompterPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ setlist?: string; i?: string }>;
+  searchParams: Promise<{ setlist?: string; i?: string; view?: string; link?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) notFound();
@@ -25,7 +25,13 @@ export default async function PrompterPage({
 
   if (!doc || (doc.type !== "text" && doc.type !== "chordpro")) notFound();
 
-  const setlistNav = await getSetlistNav(session.user.id, doc.id, await searchParams);
+  const query = await searchParams;
+  const setlistNav = await getSetlistNav(session.user.id, doc.id, query);
+  // Operator mode: this window is the reader screen another window controls.
+  const readerLinkId =
+    query.view === "reader" && typeof query.link === "string" && /^[0-9a-f-]{36}$/i.test(query.link)
+      ? query.link
+      : null;
 
   return (
     <PrompterView
@@ -36,6 +42,7 @@ export default async function PrompterPage({
       content={doc.content ?? ""}
       backHref={setlistNav?.backHref ?? `/documents/${doc.id}`}
       setlistNav={setlistNav}
+      readerLinkId={readerLinkId}
       pdfUrl={doc.metadata?.pdf?.url ?? null}
     />
   );

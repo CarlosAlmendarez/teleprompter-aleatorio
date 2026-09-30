@@ -22,6 +22,7 @@ export function ChordProText({ song, renderChord }: { song: ChordProSong; render
         return (
           <section
             key={si}
+            id={labelled ? `cp-sec-${si}` : undefined}
             className={
               section.type === "chorus"
                 ? "border-l-[0.12em] border-emerald-500 pl-[0.6em] dark:border-emerald-400"

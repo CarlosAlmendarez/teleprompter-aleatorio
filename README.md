@@ -10,6 +10,18 @@ usar incluso sin conexión.
 - **Teleprompter**: desplazamiento automático o manual, velocidad y tamaño
   ajustables, modo espejo, pantalla completa y control por teclado. Recuerda
   velocidad, tamaño, espejo y la posición donde lo dejaste.
+- **Guiones con estructura**: `# Título` crea secciones a las que saltar desde la
+  barra, y `((nota))` se muestra atenuada como indicación de dirección.
+- **Avance por voz** (guiones de texto): el texto sigue lo que vas diciendo y lo
+  coloca en la línea guía. Usa la Web Speech API (Chrome, Edge, Safari) y
+  necesita conexión.
+- **Modo operador**: "Herramientas → Abrir pantalla de lectura" abre una segunda
+  ventana (en Chrome, en el segundo monitor) que muestra el texto mientras esta la
+  controla. Incluye espejo vertical para cristales de teleprompter.
+- **Lectura personalizable** por dispositivo: tipo de letra, interlineado,
+  márgenes, alto contraste, alineación y línea guía.
+- **Cronómetro**: tiempo transcurrido, tiempo restante a tu velocidad y, con una
+  duración objetivo, si vas adelantado o atrasado.
 - **ChordPro**: acordes encima de la sílaba, secciones (verso, coro, puente),
   comentarios y tablaturas; las directivas no se muestran.
 - **Transposición y cejilla** en ChordPro y MusicXML, con ♯/♭ según la

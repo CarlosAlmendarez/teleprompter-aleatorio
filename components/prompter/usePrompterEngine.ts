@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import type { PrompterMode } from "@/lib/player/prompterCommands";
 
 const MIN_SPEED = 5;
 const MAX_SPEED = 200;
 const SPEED_STEP = 5;
 
-export type PrompterMode = "auto" | "manual";
+export type { PrompterMode };
 
 /**
  * Owns the teleprompter scroll loop. Speed and scrollTop never touch React

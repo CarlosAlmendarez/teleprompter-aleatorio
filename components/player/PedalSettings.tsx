@@ -19,10 +19,22 @@ const BUTTON_CLASS =
  * Toolbar button + dialog to set up a Bluetooth pedal: turn the mode on, pick
  * a preset, or press the pedal to assign each action.
  */
-export function PedalSettings({ actions = PEDAL_ACTIONS }: { actions?: PedalAction[] }) {
+export function PedalSettings({
+  actions = PEDAL_ACTIONS,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  actions?: PedalAction[];
+  /** Controlled mode (opened from a menu): no trigger button is rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const config = usePedalConfig();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) => (controlled ? onOpenChange?.(next) : setOwnOpen(next));
   const [learning, setLearning] = useState<PedalAction | null>(null);
 
   useEffect(() => {
@@ -57,14 +69,16 @@ export function PedalSettings({ actions = PEDAL_ACTIONS }: { actions?: PedalActi
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-pressed={config.enabled}
-        title="Configurar pedal Bluetooth"
-        className={`${BUTTON_CLASS} ${config.enabled ? "!border-emerald-500 !bg-emerald-500/15" : ""}`}
-      >
-        🦶 Pedal{config.enabled ? " ✓" : ""}
-      </button>
+      {!controlled && (
+        <button
+          onClick={() => setOpen(true)}
+          aria-pressed={config.enabled}
+          title="Configurar pedal Bluetooth"
+          className={`${BUTTON_CLASS} ${config.enabled ? "!border-emerald-500 !bg-emerald-500/15" : ""}`}
+        >
+          🦶 Pedal{config.enabled ? " ✓" : ""}
+        </button>
+      )}
       <dialog
         ref={dialogRef}
         onClose={() => {

@@ -13,6 +13,8 @@ export type ReadingPrefs = {
   theme: ReadingTheme;
   align: "left" | "center";
   guide: { show: boolean; /** % from the top */ position: number; /** px */ thickness: number };
+  /** Flip upside down for beam-splitter glass over a monitor lying flat. */
+  mirrorVertical: boolean;
 };
 
 export const DEFAULT_READING: ReadingPrefs = {
@@ -22,6 +24,7 @@ export const DEFAULT_READING: ReadingPrefs = {
   theme: "app",
   align: "left",
   guide: { show: true, position: 40, thickness: 1 },
+  mirrorVertical: false,
 };
 
 export const READING_FONTS: Record<ReadingFont, { label: string; stack: string }> = {
@@ -62,6 +65,7 @@ export function sanitizeReading(raw: unknown): ReadingPrefs {
       position: clamp(g.position, 10, 80, d.guide.position),
       thickness: clamp(g.thickness, 1, 8, d.guide.thickness),
     },
+    mirrorVertical: r.mirrorVertical === true,
   };
 }
 

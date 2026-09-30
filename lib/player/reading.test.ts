@@ -12,5 +12,7 @@ describe("sanitizeReading", () => {
     expect(prefs.lineHeight).toBe(2.4);
     expect(prefs.margin).toBe(0);
     expect(prefs.guide).toEqual({ show: false, position: 80, thickness: 1 });
+    expect(sanitizeReading({ mirrorVertical: "yes" }).mirrorVertical).toBe(false);
+    expect(sanitizeReading({ mirrorVertical: true }).mirrorVertical).toBe(true);
   });
 });
