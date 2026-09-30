@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DocumentRow } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 
 const SAVE_DELAY_MS = 500;
 
@@ -15,6 +16,7 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
   const [content, setContent] = useState(doc.content ?? "");
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Ref mirrors the latest field values (updated synchronously in the
   // onChange handlers below, not via an effect) so the debounce timeout, the
@@ -75,7 +77,6 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
   }
 
   async function handleDelete() {
-    if (!window.confirm("¿Eliminar este documento?")) return;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     dirtyRef.current = false;
     await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
@@ -86,8 +87,8 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
     status === "saving" ? "Guardando…" : status === "pending" ? "Cambios sin guardar…" : savedAt ? `Guardado ${savedAt.toLocaleTimeString()}` : "";
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           onClick={handleBack}
           title="Volver"
@@ -101,7 +102,8 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
             setTitle(e.target.value);
             markDirty({ title: e.target.value });
           }}
-          className="flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-lg font-semibold outline-none hover:border-black/10 focus:border-black/20 dark:hover:border-white/10 dark:focus:border-white/20"
+          aria-label="Título"
+          className="min-w-40 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-xl font-bold tracking-tight outline-none hover:border-black/10 focus:border-black/20 dark:hover:border-white/10 dark:focus:border-white/20"
         />
         <span className="whitespace-nowrap text-xs text-zinc-400">{statusLabel}</span>
         <Link
@@ -112,7 +114,7 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
           ▶ Teleprompter
         </Link>
         <button
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           className="whitespace-nowrap rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 dark:border-white/15"
         >
           Eliminar
@@ -130,7 +132,14 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
             ? "Letra con acordes, formato ChordPro: [C]línea de la canción[G]..."
             : "Escribe o pega tu guion/letra aquí..."
         }
-        className="min-h-[50vh] flex-1 resize-none rounded-xl border border-black/10 bg-black/[.02] p-4 font-mono text-sm leading-relaxed outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-white/[.03]"
+        className="min-h-[50vh] flex-1 resize-none rounded-2xl border border-black/10 bg-white p-5 font-mono text-sm leading-relaxed shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-white/10 dark:bg-zinc-900"
+      />
+      <ConfirmDialog
+        open={confirmOpen}
+        title="¿Eliminar documento?"
+        description={`“${title}” se eliminará de forma permanente.`}
+        onConfirm={handleDelete}
+        onClose={() => setConfirmOpen(false)}
       />
     </div>
   );

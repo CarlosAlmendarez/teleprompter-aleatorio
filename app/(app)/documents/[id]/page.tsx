@@ -40,7 +40,7 @@ export default async function DocumentPage({
   if (doc.type === "musicxml") {
     const chartData = parseChordChart(doc.content ?? "");
     return (
-      <div className="flex flex-1 flex-col">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
         <DocumentViewerHeader
           documentId={doc.id}
           title={chartData.title ?? doc.title}
@@ -93,7 +93,9 @@ export default async function DocumentPage({
   return (
     <div className="flex flex-1 flex-col">
       <DocumentEditor document={serialized} />
-      <PdfSyncEditor documentId={doc.id} metadata={doc.metadata} />
+      <div className="mx-auto w-full max-w-6xl">
+        <PdfSyncEditor documentId={doc.id} metadata={doc.metadata} />
+      </div>
     </div>
   );
 }

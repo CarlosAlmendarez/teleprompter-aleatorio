@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Teleprompter",
+  title: { default: "Teleprompter", template: "%s · Teleprompter" },
   description: "Teleprompter y biblioteca de guiones/partituras para músicos y creadores.",
 };
 
@@ -30,7 +30,7 @@ const THEME_INIT_SCRIPT = `
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="es"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
