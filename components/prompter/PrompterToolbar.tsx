@@ -126,7 +126,7 @@ export function PrompterToolbar({
           step={speedStep}
           defaultValue={defaultSpeed}
           onInput={(e) => onSpeedInput(Number(e.currentTarget.value))}
-          className="w-24 accent-emerald-500 dark:accent-emerald-400"
+          className="w-20 accent-emerald-500 dark:accent-emerald-400"
         />
       </div>
 
@@ -139,7 +139,7 @@ export function PrompterToolbar({
           max={maxFontSize}
           defaultValue={defaultFontSize}
           onInput={(e) => onFontSizeInput(Number(e.currentTarget.value))}
-          className="w-24 accent-emerald-500 dark:accent-emerald-400"
+          className="w-20 accent-emerald-500 dark:accent-emerald-400"
         />
       </div>
 

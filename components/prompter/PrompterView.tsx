@@ -248,7 +248,7 @@ export function PrompterView({
                 onChange={handleTransposeChange}
               />
             )}
-            <CountInToggle />
+            <CountInToggle label="3-2-1" />
             <PedalSettings
               actions={setlistNav ? ["forward", "back", "toggle", "next", "prev"] : ["forward", "back", "toggle"]}
             />

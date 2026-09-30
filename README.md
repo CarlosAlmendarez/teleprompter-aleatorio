@@ -8,7 +8,14 @@ usar incluso sin conexión.
 ## Funciones
 
 - **Teleprompter**: desplazamiento automático o manual, velocidad y tamaño
-  ajustables, modo espejo, pantalla completa y control por teclado.
+  ajustables, modo espejo, pantalla completa y control por teclado. Recuerda
+  velocidad, tamaño, espejo y la posición donde lo dejaste.
+- **ChordPro**: acordes encima de la sílaba, secciones (verso, coro, puente),
+  comentarios y tablaturas; las directivas no se muestran.
+- **Transposición y cejilla** en ChordPro y MusicXML, con ♯/♭ según la
+  tonalidad de destino; el tono se guarda por documento.
+- **En escena**: la pantalla no se apaga, modo pedal Bluetooth configurable y
+  cuenta atrás (3-2-1, o un compás de metrónomo en el reproductor de acordes).
 - **Tablas de acordes desde MusicXML**: el reproductor avanza compás a compás al
   tempo de la partitura (respeta cambios de tempo y compás).
 - **Letra sincronizada**: marca con `{m:N}` dónde empieza cada frase; el editor
@@ -18,7 +25,8 @@ usar incluso sin conexión.
   Las páginas se dibujan bajo demanda, sin límite de longitud.
 - **Biblioteca** con carpetas anidadas, búsqueda, orden e importación arrastrando
   archivos `.txt`, `.musicxml`/`.xml` y `.pdf`.
-- **Setlists**: ordena documentos y reprodúcelos uno tras otro.
+- **Setlists**: ordena documentos y reprodúcelos uno tras otro, con ajustes
+  propios por paso (velocidad, tono, cejilla, tempo) y una nota de transición.
 - **Modo sin conexión**: marca documentos o setlists como “Disponible sin
   conexión” y ábrelos sin internet. Se puede instalar como app (PWA).
 
@@ -30,6 +38,9 @@ usar incluso sin conexión.
 | Acordes        | `Espacio` play/pausa · `←/→` compás · `↑/↓` tempo · `R` inicio · `F` pantalla completa · `H` barra |
 | PDF            | `F` pantalla completa                                                                          |
 | Setlist (todos)| `N` / `AvPág` siguiente · `P` / `RePág` anterior · `Esc` volver                                 |
+
+Con el **modo pedal** activo (botón 🦶 en la barra), las teclas asignadas al pedal
+tienen prioridad sobre estos atajos.
 
 ## Stack
 
