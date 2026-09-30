@@ -3,12 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
+import { PdfPlayer } from "@/components/pdf/PdfPlayer";
 import { getSetlistNav } from "@/lib/setlists/queries";
-import { ChordChartPlayer } from "@/components/scores/ChordChartPlayer";
-import { parseChordChart } from "@/lib/musicxml/parseChordChart";
-import { parseLyricSegments } from "@/lib/musicxml/parseLyricChart";
 
-export default async function ScorePlayerPage({
+export default async function PdfPlayerPage({
   params,
   searchParams,
 }: {
@@ -25,21 +23,16 @@ export default async function ScorePlayerPage({
     .where(and(eq(documents.id, id), eq(documents.ownerId, session.user.id)))
     .limit(1);
 
-  if (!doc || doc.type !== "musicxml") notFound();
+  if (!doc || doc.type !== "pdf" || !doc.blobUrl) notFound();
 
   const setlistNav = await getSetlistNav(session.user.id, doc.id, await searchParams);
 
-  const chartData = parseChordChart(doc.content ?? "");
-  const lyricSegments = parseLyricSegments(doc.metadata?.lyrics ?? "", chartData.measures);
-
   return (
-    <ChordChartPlayer
-      title={chartData.title ?? doc.title}
-      data={chartData}
-      lyricSegments={lyricSegments}
+    <PdfPlayer
+      title={doc.title}
+      url={doc.blobUrl}
       backHref={setlistNav?.backHref ?? `/documents/${doc.id}`}
       setlistNav={setlistNav}
-      pdf={doc.metadata?.pdf ?? null}
     />
   );
 }

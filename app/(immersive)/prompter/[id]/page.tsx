@@ -3,12 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
+import { getSetlistNav } from "@/lib/setlists/queries";
 import { PrompterView } from "@/components/prompter/PrompterView";
 
 export default async function PrompterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ setlist?: string; i?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) notFound();
@@ -22,11 +25,14 @@ export default async function PrompterPage({
 
   if (!doc || (doc.type !== "text" && doc.type !== "chordpro")) notFound();
 
+  const setlistNav = await getSetlistNav(session.user.id, doc.id, await searchParams);
+
   return (
     <PrompterView
       title={doc.title}
       content={doc.content ?? ""}
-      backHref={`/documents/${doc.id}`}
+      backHref={setlistNav?.backHref ?? `/documents/${doc.id}`}
+      setlistNav={setlistNav}
       pdfUrl={doc.metadata?.pdf?.url ?? null}
     />
   );

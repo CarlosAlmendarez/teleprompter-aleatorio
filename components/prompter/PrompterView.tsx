@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { usePrompterEngine } from "./usePrompterEngine";
 import { PrompterToolbar } from "./PrompterToolbar";
 import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
+import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
+import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_FONT = 18;
 const MAX_FONT = 90;
@@ -17,11 +19,13 @@ export function PrompterView({
   content,
   backHref,
   pdfUrl,
+  setlistNav = null,
 }: {
   title: string;
   content: string;
   backHref: string;
   pdfUrl?: string | null;
+  setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -186,6 +190,7 @@ export function PrompterView({
       >
         Toca la pantalla para mostrar/ocultar controles · Espacio = play/pausa
       </div>
+      <SetlistNavBar nav={setlistNav} />
     </div>
   );
 }

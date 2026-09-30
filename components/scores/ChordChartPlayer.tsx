@@ -8,6 +8,8 @@ import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPan
 import type { ChordChart } from "@/lib/musicxml/parseChordChart";
 import type { LyricSegment } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentPdfAttachment } from "@/lib/db/schema";
+import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
+import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_SPEED_PCT = 50;
 const MAX_SPEED_PCT = 150;
@@ -31,12 +33,14 @@ export function ChordChartPlayer({
   lyricSegments = [],
   backHref,
   pdf,
+  setlistNav = null,
 }: {
   title: string;
   data: ChordChart;
   lyricSegments?: LyricSegment[];
   backHref: string;
   pdf?: DocumentPdfAttachment | null;
+  setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
   const measures = data.measures;
@@ -384,6 +388,7 @@ export function ChordChartPlayer({
       >
         Espacio = play/pausa · ←/→ compás · ↑/↓ tempo · R inicio · F pantalla completa
       </div>
+      <SetlistNavBar nav={setlistNav} />
     </div>
   );
 }

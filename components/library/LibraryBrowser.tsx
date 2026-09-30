@@ -6,23 +6,10 @@ import Link from "next/link";
 import type { DocumentRow, DocumentType, FolderRow } from "@/lib/types";
 import { uploadPdf } from "@/lib/pdf/upload-client";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
+import { TYPE_LABEL, TYPE_STYLE } from "./documentTypes";
 
 const MUSICXML_EXTENSIONS = [".musicxml", ".xml"];
 const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ...MUSICXML_EXTENSIONS];
-
-const TYPE_LABEL: Record<DocumentType, string> = {
-  text: "Texto",
-  chordpro: "ChordPro",
-  pdf: "PDF",
-  musicxml: "MusicXML",
-};
-
-const TYPE_STYLE: Record<DocumentType, { icon: string; tint: string }> = {
-  text: { icon: "📜", tint: "bg-sky-500/10 text-sky-700 dark:text-sky-300" },
-  chordpro: { icon: "🎸", tint: "bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  musicxml: { icon: "🎼", tint: "bg-violet-500/10 text-violet-700 dark:text-violet-300" },
-  pdf: { icon: "📄", tint: "bg-rose-500/10 text-rose-700 dark:text-rose-300" },
-};
 
 type SortMode = "name" | "recent";
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth, signOut } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Logo } from "@/components/brand/Logo";
+import { MainNav } from "@/components/layout/MainNav";
 
 export default async function AppLayout({
   children,
@@ -24,9 +25,12 @@ export default async function AppLayout({
     <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-30 border-b border-black/5 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/80">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/dashboard" className="text-sm">
-            <Logo />
-          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-6">
+            <Link href="/dashboard" className="text-sm" aria-label="Inicio">
+              <Logo className="[&>span:last-child]:hidden sm:[&>span:last-child]:inline" />
+            </Link>
+            <MainNav />
+          </div>
           <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
             <ThemeToggle />
             <div className="flex items-center gap-2 rounded-full border border-black/10 py-1 pl-1 pr-3 dark:border-white/10">

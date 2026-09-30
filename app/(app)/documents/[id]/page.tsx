@@ -73,7 +73,21 @@ export default async function DocumentPage({
   if (doc.type === "pdf") {
     return (
       <div className="flex flex-1 flex-col">
-        <DocumentViewerHeader documentId={doc.id} title={doc.title} folderId={doc.folderId} />
+        <DocumentViewerHeader
+          documentId={doc.id}
+          title={doc.title}
+          folderId={doc.folderId}
+          extra={
+            doc.blobUrl ? (
+              <Link
+                href={`/pdf/${doc.id}`}
+                className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+              >
+                ⛶ Pantalla completa
+              </Link>
+            ) : undefined
+          }
+        />
         {doc.blobUrl ? (
           <div className="flex min-h-[24rem] flex-1 flex-col [height:calc(100dvh-9rem)]">
             <SyncedPdfPane url={doc.blobUrl} interactive className="flex-1" />
