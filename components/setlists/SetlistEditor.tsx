@@ -7,14 +7,21 @@ import type { DocumentRow } from "@/lib/types";
 import { BUTTON_PRIMARY, ConfirmDialog } from "@/components/ui/Dialog";
 import { TYPE_LABEL, TYPE_STYLE } from "@/components/library/documentTypes";
 import { OfflineToggle } from "@/components/offline/OfflineToggle";
-import { SETLIST_KIND_LABEL, playerHref, type SetlistDetail } from "@/lib/setlists/types";
+import { ItemSettings } from "./ItemSettings";
+import {
+  SETLIST_KIND_LABEL,
+  playerHref,
+  type SetlistDetail,
+  type SetlistItemOverrides,
+} from "@/lib/setlists/types";
 
-type Item = Pick<SetlistDetail["items"][number], "documentId" | "title" | "type"> & {
+type Item = Pick<SetlistDetail["items"][number], "documentId" | "title" | "type" | "overrides"> & {
   /** Client-only key so duplicates of one document reorder independently. */
   key: string;
 };
 
 const RENAME_DELAY_MS = 500;
+const SETTINGS_DELAY_MS = 600;
 
 let keySeq = 0;
 const nextKey = () => `k${++keySeq}`;
@@ -29,15 +36,25 @@ export function SetlistEditor({
   const router = useRouter();
   const [name, setName] = useState(setlist.name);
   const [items, setItems] = useState<Item[]>(() =>
-    setlist.items.map((it) => ({ documentId: it.documentId, title: it.title, type: it.type, key: nextKey() })),
+    setlist.items.map((it) => ({
+      documentId: it.documentId,
+      title: it.title,
+      type: it.type,
+      overrides: it.overrides,
+      key: nextKey(),
+    })),
   );
   const [library, setLibrary] = useState<DocumentRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const [openSettings, setOpenSettings] = useState<string | null>(null);
   const renameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveSeq = useRef(0);
+  // PUTs replace the whole list, so they must reach the server in order.
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     fetch("/api/documents")
@@ -46,22 +63,37 @@ export function SetlistEditor({
       .catch(() => setLibrary([]));
   }, []);
 
-  // Persists the full ordered list. Rapid edits race, so only the latest
-  // request's outcome is allowed to update the status label.
-  async function saveItems(next: Item[]) {
+  // Persists the full ordered list (with each step's settings). Requests are
+  // queued so they land in order, and only the latest one sets the label.
+  function saveItems(next: Item[]) {
     setItems(next);
     setStatus("saving");
+    if (settingsTimer.current) clearTimeout(settingsTimer.current);
     const seq = ++saveSeq.current;
-    try {
-      const res = await fetch(`/api/setlists/${setlist.id}/items`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentIds: next.map((it) => it.documentId) }),
-      });
-      if (seq === saveSeq.current) setStatus(res.ok ? "saved" : "error");
-    } catch {
-      if (seq === saveSeq.current) setStatus("error");
-    }
+    const body = JSON.stringify({
+      items: next.map((it) => ({ documentId: it.documentId, overrides: it.overrides })),
+    });
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        const res = await fetch(`/api/setlists/${setlist.id}/items`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        if (seq === saveSeq.current) setStatus(res.ok ? "saved" : "error");
+      } catch {
+        if (seq === saveSeq.current) setStatus("error");
+      }
+    });
+  }
+
+  // Settings edits (typing a note, nudging a number) save after a short pause.
+  function updateOverrides(key: string, overrides: SetlistItemOverrides) {
+    const next = items.map((it) => (it.key === key ? { ...it, overrides } : it));
+    setItems(next);
+    setStatus("saving");
+    if (settingsTimer.current) clearTimeout(settingsTimer.current);
+    settingsTimer.current = setTimeout(() => saveItems(next), SETTINGS_DELAY_MS);
   }
 
   function rename(value: string) {
@@ -84,11 +116,11 @@ export function SetlistEditor({
     const next = [...items];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
-    void saveItems(next);
+    saveItems(next);
   }
 
   function add(doc: DocumentRow) {
-    void saveItems([...items, { documentId: doc.id, title: doc.title, type: doc.type, key: nextKey() }]);
+    saveItems([...items, { documentId: doc.id, title: doc.title, type: doc.type, overrides: {}, key: nextKey() }]);
   }
 
   async function deleteSetlist() {
@@ -157,11 +189,6 @@ export function SetlistEditor({
                 return (
                   <li
                     key={it.key}
-                    draggable
-                    onDragStart={(e) => {
-                      setDragKey(it.key);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
                     onDragOver={(e) => {
                       if (dragKey) e.preventDefault();
                     }}
@@ -172,57 +199,85 @@ export function SetlistEditor({
                       setDragKey(null);
                     }}
                     onDragEnd={() => setDragKey(null)}
-                    className={`group flex items-center gap-3 rounded-2xl border bg-white p-3 transition dark:bg-zinc-900 ${
+                    className={`rounded-2xl border bg-white transition dark:bg-zinc-900 ${
                       dragKey === it.key
                         ? "border-emerald-500 opacity-60"
                         : "border-black/10 dark:border-white/10"
                     }`}
                   >
-                    <span className="cursor-grab select-none text-zinc-400" aria-hidden="true">
-                      ⠿
-                    </span>
-                    <span className="w-6 text-right text-sm font-semibold tabular-nums text-zinc-400">{i + 1}</span>
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg ${style.tint}`}>
-                      {style.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/documents/${it.documentId}`} className="block truncate text-sm font-medium hover:underline">
-                        {it.title}
-                      </Link>
-                      <span className="text-xs text-zinc-500">{TYPE_LABEL[it.type]}</span>
+                    {/* Only the row drags, so text selection in the settings stays usable. */}
+                    <div
+                      draggable
+                      onDragStart={(e) => {
+                        setDragKey(it.key);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      className="group flex items-center gap-3 p-3"
+                    >
+                      <span className="cursor-grab select-none text-zinc-400" aria-hidden="true">
+                        ⠿
+                      </span>
+                      <span className="w-6 text-right text-sm font-semibold tabular-nums text-zinc-400">{i + 1}</span>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg ${style.tint}`}>
+                        {style.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/documents/${it.documentId}`} className="block truncate text-sm font-medium hover:underline">
+                          {it.title}
+                        </Link>
+                        <span className="text-xs text-zinc-500">{TYPE_LABEL[it.type]}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <button
+                          onClick={() => move(i, i - 1)}
+                          disabled={i === 0}
+                          aria-label="Subir"
+                          className="rounded-md px-2 py-1 hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/10"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => move(i, i + 1)}
+                          disabled={i === items.length - 1}
+                          aria-label="Bajar"
+                          className="rounded-md px-2 py-1 hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/10"
+                        >
+                          ↓
+                        </button>
+                        <Link
+                          href={playerHref({ id: it.documentId, type: it.type }, { id: setlist.id, index: i })}
+                          aria-label={`Reproducir desde ${it.title}`}
+                          className="rounded-md px-2 py-1 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                        >
+                          ▶
+                        </Link>
+                        <button
+                          onClick={() => setOpenSettings(openSettings === it.key ? null : it.key)}
+                          aria-expanded={openSettings === it.key}
+                          aria-label={`Ajustes de ${it.title}`}
+                          title="Ajustes para este paso"
+                          className={`rounded-md px-2 py-1 hover:bg-black/5 dark:hover:bg-white/10 ${
+                            Object.keys(it.overrides).length > 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+                          }`}
+                        >
+                          ⚙
+                        </button>
+                        <button
+                          onClick={() => saveItems(items.filter((x) => x.key !== it.key))}
+                          aria-label={`Quitar ${it.title}`}
+                          className="rounded-md px-2 py-1 text-zinc-400 hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <button
-                        onClick={() => move(i, i - 1)}
-                        disabled={i === 0}
-                        aria-label="Subir"
-                        className="rounded-md px-2 py-1 hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/10"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => move(i, i + 1)}
-                        disabled={i === items.length - 1}
-                        aria-label="Bajar"
-                        className="rounded-md px-2 py-1 hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/10"
-                      >
-                        ↓
-                      </button>
-                      <Link
-                        href={playerHref({ id: it.documentId, type: it.type }, { id: setlist.id, index: i })}
-                        aria-label={`Reproducir desde ${it.title}`}
-                        className="rounded-md px-2 py-1 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
-                      >
-                        ▶
-                      </Link>
-                      <button
-                        onClick={() => void saveItems(items.filter((x) => x.key !== it.key))}
-                        aria-label={`Quitar ${it.title}`}
-                        className="rounded-md px-2 py-1 text-zinc-400 hover:bg-red-500/10 hover:text-red-500"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    {openSettings === it.key && (
+                      <ItemSettings
+                        type={it.type}
+                        overrides={it.overrides}
+                        onChange={(overrides) => updateOverrides(it.key, overrides)}
+                      />
+                    )}
                   </li>
                 );
               })}

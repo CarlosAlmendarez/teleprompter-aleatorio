@@ -10,6 +10,11 @@ import type { LyricSegment } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentPdfAttachment } from "@/lib/db/schema";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
+import { usePlayerSettings } from "@/components/player/usePlayerSettings";
+import { TransposeControl } from "@/components/player/TransposeControl";
+import type { DocumentMetadata } from "@/lib/db/schema";
+import { resolvePlayerSettings } from "@/lib/player/settings";
+import { accidentalsForShift, transposeChord } from "@/lib/music/transpose";
 import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_SPEED_PCT = 50;
@@ -29,6 +34,8 @@ function findActiveIndex(items: Array<{ startSec: number }>, elapsedSec: number)
 }
 
 export function ChordChartPlayer({
+  documentId,
+  metadata = null,
   title,
   data,
   lyricSegments = [],
@@ -36,6 +43,8 @@ export function ChordChartPlayer({
   pdf,
   setlistNav = null,
 }: {
+  documentId: string;
+  metadata?: DocumentMetadata | null;
   title: string;
   data: ChordChart;
   lyricSegments?: LyricSegment[];
@@ -45,6 +54,11 @@ export function ChordChartPlayer({
 }) {
   const router = useRouter();
   useWakeLock();
+  const [initial] = useState(() => resolvePlayerSettings(metadata, setlistNav?.overrides));
+  const initialTempo = Math.min(MAX_SPEED_PCT, Math.max(MIN_SPEED_PCT, initial.tempoPct ?? 100));
+  const { save } = usePlayerSettings({ documentId, playback: metadata?.playback, setlistNav });
+  const [transpose, setTranspose] = useState(initial.transpose ?? 0);
+  const [capo, setCapo] = useState(initial.capo ?? 0);
   const measures = data.measures;
   const measureByNumber = new Map(measures.map((m) => [m.number, m]));
 
@@ -57,7 +71,7 @@ export function ChordChartPlayer({
   // Playback clock lives in refs — the rAF loop only reads/writes these and
   // calls setActiveIndex on measure-boundary crossings (a handful of times
   // per song), never on every frame, so it never drives a 60fps re-render.
-  const speedRef = useRef(100);
+  const speedRef = useRef(initialTempo);
   const elapsedBaseRef = useRef(0);
   const startPerfRef = useRef(0);
   const rafId = useRef<number | null>(null);
@@ -157,6 +171,7 @@ export function ChordChartPlayer({
       startPerfRef.current = performance.now();
     }
     speedRef.current = value;
+    save({ tempoPct: value });
   }
 
   function nudgeTempo(delta: number) {
@@ -233,6 +248,11 @@ export function ChordChartPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, backHref]);
 
+  // Chords as shown: shifted by the transposition, minus the capo (shapes).
+  const shift = transpose - capo;
+  const accidentals = accidentalsForShift(data.key, shift, measures.find((m) => m.chords.length > 0)?.chords[0]);
+  const show = (chords: string[]) => chords.map((c) => transposeChord(c, shift, accidentals));
+
   const activeMeasure = measures[activeIndex];
   const nextMeasure = measures[activeIndex + 1];
   const hasLyrics = lyricSegments.length > 0;
@@ -268,11 +288,22 @@ export function ChordChartPlayer({
             min={MIN_SPEED_PCT}
             max={MAX_SPEED_PCT}
             step={SPEED_STEP}
-            defaultValue={100}
+            defaultValue={initialTempo}
             onInput={(e) => handleSpeedInput(Number(e.currentTarget.value))}
             className="w-24 accent-emerald-500 dark:accent-emerald-400"
           />
         </div>
+
+        <TransposeControl
+          transpose={transpose}
+          capo={capo}
+          songKey={data.key}
+          onChange={(next) => {
+            setTranspose(next.transpose);
+            setCapo(next.capo);
+            save(next);
+          }}
+        />
 
         <div className="flex-1" />
         {pdf?.url && (
@@ -307,7 +338,7 @@ export function ChordChartPlayer({
               )}
               {activeLyricChords && activeLyricChords.length > 0 && (
                 <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  {activeLyricChords.join(" · ")}
+                  {show(activeLyricChords).join(" · ")}
                 </div>
               )}
               <div className="whitespace-pre-wrap text-3xl font-semibold leading-snug sm:text-4xl">
@@ -324,13 +355,13 @@ export function ChordChartPlayer({
                   Compás {activeMeasure?.number ?? "—"}
                 </div>
                 <div className="text-6xl font-bold sm:text-7xl">
-                  {activeMeasure?.chords.join(" · ") || "—"}
+                  {(activeMeasure && show(activeMeasure.chords).join(" · ")) || "—"}
                 </div>
               </div>
               {nextMeasure && nextMeasure.chords.length > 0 && (
                 <div className="text-center text-zinc-400 dark:text-zinc-500">
                   <div className="text-xs uppercase tracking-wide">Sigue</div>
-                  <div className="text-2xl font-semibold">{nextMeasure.chords.join(" · ")}</div>
+                  <div className="text-2xl font-semibold">{show(nextMeasure.chords).join(" · ")}</div>
                 </div>
               )}
             </div>
@@ -355,7 +386,7 @@ export function ChordChartPlayer({
                   </span>
                   <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
                     {measure.chords.length > 0 ? (
-                      measure.chords.map((chord, ci) => (
+                      show(measure.chords).map((chord, ci) => (
                         <span key={ci} className="text-xl font-bold leading-none">
                           {chord}
                         </span>

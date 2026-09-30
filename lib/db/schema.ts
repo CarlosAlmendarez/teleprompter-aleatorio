@@ -108,6 +108,19 @@ export type DocumentPdfAttachment = {
   anchors?: PdfAnchor[];
 };
 
+/** Player preferences remembered per document (see lib/player/settings). */
+export type PlaybackSettings = {
+  /** Teleprompter scroll speed, px/s. */
+  speed?: number;
+  /** Teleprompter font size, px. */
+  fontSize?: number;
+  mirror?: boolean;
+  /** Last teleprompter scroll position, 0..1 of the scrollable range. */
+  position?: number;
+  /** Chord chart playback speed, % of the score tempo. */
+  tempoPct?: number;
+};
+
 export type DocumentMetadata = {
   key?: string;
   tempo?: number;
@@ -126,6 +139,11 @@ export type DocumentMetadata = {
    * in lockstep with playback. Available on any document type.
    */
   pdf?: DocumentPdfAttachment;
+  /** Semitones the chords are shifted by (chordpro / musicxml), -11..11. */
+  transpose?: number;
+  /** Capo fret: chords are shown as shapes played with the capo on, 0..11. */
+  capo?: number;
+  playback?: PlaybackSettings;
 };
 
 export const documents = pgTable("documents", {
@@ -161,11 +179,19 @@ export const setlists = pgTable("setlists", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * Per-step settings inside a setlist; they win over the document's own
+ * settings while the setlist plays, and in-player changes are saved here.
+ */
 export type SetlistItemOverrides = {
   speed?: number;
   fontSize?: number;
   mirror?: boolean;
   showLyrics?: boolean;
+  tempoPct?: number;
+  transpose?: number;
+  capo?: number;
+  /** Reminder shown while this step plays ("cambiar a guitarra acústica"). */
   transitionNote?: string;
 };
 

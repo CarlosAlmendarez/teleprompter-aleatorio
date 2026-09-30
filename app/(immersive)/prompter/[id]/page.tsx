@@ -29,6 +29,9 @@ export default async function PrompterPage({
 
   return (
     <PrompterView
+      documentId={doc.id}
+      format={doc.type === "chordpro" ? "chordpro" : "text"}
+      metadata={doc.metadata}
       title={doc.title}
       content={doc.content ?? ""}
       backHref={setlistNav?.backHref ?? `/documents/${doc.id}`}

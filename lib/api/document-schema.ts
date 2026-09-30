@@ -19,6 +19,47 @@ const pdfAttachmentSchema = z.object({
   anchors: z.array(pdfAnchorSchema).max(200).optional(),
 });
 
+const transposeSchema = z.number().int().min(-11).max(11);
+const capoSchema = z.number().int().min(0).max(11);
+
+export const playbackSchema = z
+  .object({
+    speed: z.number().min(5).max(200),
+    fontSize: z.number().min(12).max(120),
+    mirror: z.boolean(),
+    position: z.number().min(0).max(1),
+    tempoPct: z.number().min(50).max(150),
+  })
+  .partial();
+
+export const setlistOverridesSchema = z
+  .object({
+    speed: z.number().min(5).max(200),
+    fontSize: z.number().min(12).max(120),
+    mirror: z.boolean(),
+    showLyrics: z.boolean(),
+    tempoPct: z.number().min(50).max(150),
+    transpose: transposeSchema,
+    capo: capoSchema,
+    transitionNote: z.string().max(300),
+  })
+  .partial();
+
+/** PATCH body for one setlist step: listed keys are merged, `null` removes. */
+export const setlistOverridesPatchSchema = z
+  .object({
+    speed: z.number().min(5).max(200).nullable(),
+    fontSize: z.number().min(12).max(120).nullable(),
+    mirror: z.boolean().nullable(),
+    showLyrics: z.boolean().nullable(),
+    tempoPct: z.number().min(50).max(150).nullable(),
+    transpose: transposeSchema.nullable(),
+    capo: capoSchema.nullable(),
+    transitionNote: z.string().max(300).nullable(),
+  })
+  .partial()
+  .strict();
+
 export const metadataSchema = z
   .object({
     key: z.string().max(20).optional(),
@@ -27,6 +68,9 @@ export const metadataSchema = z
     durationSec: z.number().int().positive().optional(),
     lyrics: z.string().max(200_000).optional(),
     pdf: pdfAttachmentSchema.optional(),
+    transpose: transposeSchema.optional(),
+    capo: capoSchema.optional(),
+    playback: playbackSchema.optional(),
   })
   .partial();
 
@@ -41,6 +85,9 @@ export const metadataPatchSchema = z
     durationSec: z.number().int().positive().nullable(),
     lyrics: z.string().max(200_000).nullable(),
     pdf: pdfAttachmentSchema.nullable(),
+    transpose: transposeSchema.nullable(),
+    capo: capoSchema.nullable(),
+    playback: playbackSchema.nullable(),
   })
   .partial();
 

@@ -1,31 +1,45 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePrompterEngine } from "./usePrompterEngine";
 import { PrompterToolbar } from "./PrompterToolbar";
+import { ChordProText } from "./ChordProText";
 import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
+import { usePlayerSettings } from "@/components/player/usePlayerSettings";
+import { TransposeControl } from "@/components/player/TransposeControl";
 import type { SetlistNav } from "@/lib/setlists/types";
+import type { DocumentMetadata } from "@/lib/db/schema";
+import { resolvePlayerSettings } from "@/lib/player/settings";
+import { firstChord, parseChordPro } from "@/lib/chordpro/parse";
+import { accidentalsForShift, prettyAccidentals, transposeChord } from "@/lib/music/transpose";
 
 const MIN_FONT = 18;
 const MAX_FONT = 90;
 const DEFAULT_FONT = 40;
+const DEFAULT_SPEED = 40;
 const ARROW_NUDGE_PX = 80;
 
 export function PrompterView({
+  documentId,
+  format = "text",
   title,
   content,
   backHref,
   pdfUrl,
+  metadata = null,
   setlistNav = null,
 }: {
+  documentId: string;
+  format?: "text" | "chordpro";
   title: string;
   content: string;
   backHref: string;
   pdfUrl?: string | null;
+  metadata?: DocumentMetadata | null;
   setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
@@ -35,6 +49,16 @@ export function PrompterView({
   const speedInputRef = useRef<HTMLInputElement>(null);
   const pdfPaneRef = useRef<PdfPaneHandle>(null);
   const [showPdf, setShowPdf] = useState(Boolean(pdfUrl));
+
+  // Settings resolved once on mount: document's own, then the setlist step's.
+  const [initial] = useState(() => resolvePlayerSettings(metadata, setlistNav?.overrides));
+  const initialFont = Math.min(MAX_FONT, Math.max(MIN_FONT, initial.fontSize ?? DEFAULT_FONT));
+  const initialSpeed = initial.speed ?? DEFAULT_SPEED;
+  const { save } = usePlayerSettings({ documentId, playback: metadata?.playback, setlistNav });
+
+  const song = useMemo(() => (format === "chordpro" ? parseChordPro(content) : null), [format, content]);
+  const [transpose, setTranspose] = useState(initial.transpose ?? 0);
+  const [capo, setCapo] = useState(initial.capo ?? song?.capo ?? 0);
 
   const {
     mode,
@@ -51,7 +75,10 @@ export function PrompterView({
     maxSpeed,
     speedStep,
     speedRef,
-  } = usePrompterEngine(viewportRef);
+  } = usePrompterEngine(viewportRef, {
+    initialSpeed,
+    initialMirror: initial.mirror ?? false,
+  });
 
   useWakeLock();
   const [barVisible, setBarVisible] = useState(true);
@@ -75,6 +102,7 @@ export function PrompterView({
         changeSpeed(e.code === "ArrowRight" ? speedStep : -speedStep);
         // Keep the (uncontrolled) slider in step with keyboard changes.
         if (speedInputRef.current) speedInputRef.current.value = String(speedRef.current);
+        save({ speed: speedRef.current });
       } else if (e.key === "m" || e.key === "M") {
         setMode(mode === "auto" ? "manual" : "auto");
       } else if (e.key === "f" || e.key === "F") {
@@ -85,7 +113,7 @@ export function PrompterView({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [playing, mode, setPlaying, setMode, nudge, changeSpeed, speedStep, speedRef, router, backHref]);
+  }, [playing, mode, setPlaying, setMode, nudge, changeSpeed, speedStep, speedRef, router, backHref, save]);
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -99,20 +127,53 @@ export function PrompterView({
     if (textLayerRef.current) {
       textLayerRef.current.style.fontSize = `${value}px`;
     }
+    save({ fontSize: value });
   }
 
+  function handleSpeedInput(value: number) {
+    setSpeed(value);
+    save({ speed: value });
+  }
+
+  function handleMirrorChange(next: boolean) {
+    setMirror(next);
+    save({ mirror: next });
+  }
+
+  function handleTransposeChange(next: { transpose: number; capo: number }) {
+    setTranspose(next.transpose);
+    setCapo(next.capo);
+    save(next);
+  }
+
+  // Apply the remembered font size, then (outside a setlist) jump back to
+  // where the reader left off once the text has laid out.
   useEffect(() => {
-    if (textLayerRef.current) {
-      textLayerRef.current.style.fontSize = `${DEFAULT_FONT}px`;
-    }
-  }, []);
+    if (textLayerRef.current) textLayerRef.current.style.fontSize = `${initialFont}px`;
+    const position = initial.position;
+    if (!position) return;
+    const frame = requestAnimationFrame(() => {
+      const el = viewportRef.current;
+      if (el) el.scrollTop = position * Math.max(el.scrollHeight - el.clientHeight, 0);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [initial, initialFont]);
 
   function handleViewportScroll() {
     const el = viewportRef.current;
     if (!el) return;
     const max = el.scrollHeight - el.clientHeight;
-    pdfPaneRef.current?.seekFraction(max > 0 ? el.scrollTop / max : 0);
+    const fraction = max > 0 ? el.scrollTop / max : 0;
+    pdfPaneRef.current?.seekFraction(fraction);
+    save({ position: Math.round(fraction * 1000) / 1000 });
   }
+
+  const shift = transpose - capo;
+  const accidentals = useMemo(
+    () => accidentalsForShift(song?.key, shift, song ? firstChord(song) : null),
+    [song, shift],
+  );
+  const renderChord = (chord: string) => prettyAccidentals(transposeChord(chord, shift, accidentals));
 
   const hasContent = content.trim().length > 0;
   const pdfVisible = Boolean(pdfUrl) && showPdf;
@@ -129,23 +190,33 @@ export function PrompterView({
         minSpeed={minSpeed}
         maxSpeed={maxSpeed}
         speedStep={speedStep}
-        defaultSpeed={40}
+        defaultSpeed={initialSpeed}
         minFontSize={MIN_FONT}
         maxFontSize={MAX_FONT}
-        defaultFontSize={DEFAULT_FONT}
+        defaultFontSize={initialFont}
         fontSizeInputRef={fontSizeInputRef}
         speedInputRef={speedInputRef}
         onModeChange={setMode}
         onPlayingToggle={() => setPlaying(!playing)}
         onReset={reset}
-        onSpeedInput={setSpeed}
+        onSpeedInput={handleSpeedInput}
         onFontSizeInput={handleFontSizeInput}
-        onMirrorChange={setMirror}
+        onMirrorChange={handleMirrorChange}
         onFullscreen={toggleFullscreen}
         onHide={() => setBarVisible(false)}
         pdfAvailable={Boolean(pdfUrl)}
         pdfVisible={pdfVisible}
         onTogglePdf={() => setShowPdf((v) => !v)}
+        extraControls={
+          song ? (
+            <TransposeControl
+              transpose={transpose}
+              capo={capo}
+              songKey={song.key}
+              onChange={handleTransposeChange}
+            />
+          ) : null
+        }
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -159,11 +230,11 @@ export function PrompterView({
           {hasContent ? (
             <div
               ref={textLayerRef}
-              className={`whitespace-pre-wrap break-words px-[6vw] pt-[45vh] pb-[60vh] leading-relaxed transition-[font-size] duration-150 ${
-                mirror ? "[transform:scaleX(-1)]" : ""
-              }`}
+              className={`break-words px-[6vw] pt-[45vh] pb-[60vh] leading-relaxed transition-[font-size] duration-150 ${
+                song ? "" : "whitespace-pre-wrap"
+              } ${mirror ? "[transform:scaleX(-1)]" : ""}`}
             >
-              {content}
+              {song ? <ChordProText song={song} renderChord={renderChord} /> : content}
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">

@@ -12,14 +12,17 @@ export type PrompterMode = "auto" | "manual";
  * dragging the speed slider or ticking frames never re-renders this tree.
  * Only rare, discrete UI state (mode/playing/mirror) is React state.
  */
-export function usePrompterEngine(viewportRef: RefObject<HTMLDivElement | null>) {
+export function usePrompterEngine(
+  viewportRef: RefObject<HTMLDivElement | null>,
+  { initialSpeed = 40, initialMirror = false }: { initialSpeed?: number; initialMirror?: boolean } = {},
+) {
   const [mode, setModeState] = useState<PrompterMode>("auto");
   // Starts paused: the loop only runs once the user presses play, so the
   // button label always matches what the viewport is actually doing.
   const [playing, setPlayingState] = useState(false);
-  const [mirror, setMirror] = useState(false);
+  const [mirror, setMirror] = useState(initialMirror);
 
-  const speedRef = useRef(40); // px/sec
+  const speedRef = useRef(Math.min(MAX_SPEED, Math.max(MIN_SPEED, initialSpeed))); // px/sec
   const rafId = useRef<number | null>(null);
   const lastTs = useRef<number | null>(null);
 

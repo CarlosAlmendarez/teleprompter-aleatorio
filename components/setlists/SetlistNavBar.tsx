@@ -30,43 +30,55 @@ export function SetlistNavBar({ nav }: { nav: SetlistNav | null }) {
 
   if (!nav) return null;
 
+  const note = nav.overrides.transitionNote;
+
   return (
-    <div className="fixed bottom-3 right-3 z-20 flex max-w-[calc(100vw-1.5rem)] items-center gap-1 rounded-full border border-black/10 bg-white/90 p-1 text-sm shadow-lg backdrop-blur dark:border-white/10 dark:bg-zinc-900/90">
-      {nav.prev ? (
-        <Link
-          href={nav.prev.href}
-          title={`Anterior: ${nav.prev.title} (P)`}
-          className="rounded-full px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+    <div className="fixed bottom-3 right-3 z-20 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2">
+      {note && (
+        <div
+          role="note"
+          className="max-w-sm rounded-xl border border-amber-500/30 bg-amber-50/95 px-3 py-2 text-sm text-amber-900 shadow-lg backdrop-blur dark:bg-amber-950/90 dark:text-amber-200"
         >
-          ←
-        </Link>
-      ) : (
-        <span className="px-3 py-1.5 text-zinc-300 dark:text-zinc-700">←</span>
+          📝 {note}
+        </div>
       )}
-      <Link
-        href={nav.backHref}
-        title={`Volver a ${nav.name}`}
-        className="whitespace-nowrap px-1 text-xs tabular-nums text-zinc-500 hover:underline dark:text-zinc-400"
-      >
-        {nav.index + 1} / {nav.total}
-      </Link>
-      {nav.next ? (
-        <Link
-          href={nav.next.href}
-          title={`Siguiente (N)`}
-          className="flex min-w-0 items-center gap-2 rounded-full bg-emerald-500 px-3 py-1.5 font-medium text-black hover:bg-emerald-400"
-        >
-          <span className="truncate">{nav.next.title}</span>
-          <span>→</span>
-        </Link>
-      ) : (
+      <div className="flex max-w-full items-center gap-1 rounded-full border border-black/10 bg-white/90 p-1 text-sm shadow-lg backdrop-blur dark:border-white/10 dark:bg-zinc-900/90">
+        {nav.prev ? (
+          <Link
+            href={nav.prev.href}
+            title={`Anterior: ${nav.prev.title} (P)`}
+            className="rounded-full px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            ←
+          </Link>
+        ) : (
+          <span className="px-3 py-1.5 text-zinc-300 dark:text-zinc-700">←</span>
+        )}
         <Link
           href={nav.backHref}
-          className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-black/5 dark:hover:bg-white/10"
+          title={`Volver a ${nav.name}`}
+          className="whitespace-nowrap px-1 text-xs tabular-nums text-zinc-500 hover:underline dark:text-zinc-400"
         >
-          Fin ✓
+          {nav.index + 1} / {nav.total}
         </Link>
-      )}
+        {nav.next ? (
+          <Link
+            href={nav.next.href}
+            title={`Siguiente (N)`}
+            className="flex min-w-0 items-center gap-2 rounded-full bg-emerald-500 px-3 py-1.5 font-medium text-black hover:bg-emerald-400"
+          >
+            <span className="truncate">{nav.next.title}</span>
+            <span>→</span>
+          </Link>
+        ) : (
+          <Link
+            href={nav.backHref}
+            className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            Fin ✓
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

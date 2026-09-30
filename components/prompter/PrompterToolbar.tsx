@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import type { PrompterMode } from "./usePrompterEngine";
@@ -35,6 +35,7 @@ export function PrompterToolbar({
   pdfAvailable = false,
   pdfVisible = false,
   onTogglePdf,
+  extraControls,
 }: {
   visible: boolean;
   mode: PrompterMode;
@@ -62,6 +63,8 @@ export function PrompterToolbar({
   pdfAvailable?: boolean;
   pdfVisible?: boolean;
   onTogglePdf?: () => void;
+  /** Extra controls (transposition, count-in, pedal) placed before the spacer. */
+  extraControls?: ReactNode;
 }) {
   return (
     <div
@@ -149,6 +152,8 @@ export function PrompterToolbar({
         />
         Espejo
       </label>
+
+      {extraControls}
 
       <div className="flex-1" />
 

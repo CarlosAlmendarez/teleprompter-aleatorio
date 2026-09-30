@@ -5,13 +5,16 @@ import { db } from "@/lib/db";
 import { documents, setlistItems, setlists } from "@/lib/db/schema";
 import { isResponse, requireUserId } from "@/lib/api/require-user";
 import { getSetlist } from "@/lib/setlists/queries";
+import { setlistOverridesSchema } from "@/lib/api/document-schema";
 
 // Positions are stored with gaps; replacing the whole list rewrites them as
 // multiples of this step, so a later single-item insert can slot in between.
 const POSITION_STEP = 1000;
 
 const replaceItemsSchema = z.object({
-  documentIds: z.array(z.uuid()).max(500),
+  items: z
+    .array(z.object({ documentId: z.uuid(), overrides: setlistOverridesSchema.optional() }))
+    .max(500),
 });
 
 /** Replaces the setlist's ordered items (add / remove / reorder in one call). */
@@ -27,7 +30,8 @@ export async function PUT(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { documentIds } = parsed.data;
+  const { items } = parsed.data;
+  const documentIds = items.map((item) => item.documentId);
 
   const setlist = await getSetlist(userId, id);
   if (!setlist) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -48,10 +52,11 @@ export async function PUT(
   const touch = db.update(setlists).set({ updatedAt: new Date() }).where(eq(setlists.id, id));
   if (documentIds.length > 0) {
     const insert = db.insert(setlistItems).values(
-      documentIds.map((documentId, i) => ({
+      items.map((item, i) => ({
         setlistId: id,
-        documentId,
+        documentId: item.documentId,
         position: (i + 1) * POSITION_STEP,
+        overrides: item.overrides ?? {},
       })),
     );
     await db.batch([clear, insert, touch]);

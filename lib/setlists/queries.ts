@@ -21,6 +21,7 @@ export async function getSetlist(userId: string, id: string): Promise<SetlistDet
       position: setlistItems.position,
       title: documents.title,
       type: documents.type,
+      overrides: setlistItems.overrides,
     })
     .from(setlistItems)
     .innerJoin(documents, eq(documents.id, setlistItems.documentId))
@@ -32,7 +33,7 @@ export async function getSetlist(userId: string, id: string): Promise<SetlistDet
     name: setlist.name,
     kind: setlist.kind,
     updatedAt: setlist.updatedAt.toISOString(),
-    items,
+    items: items.map((item) => ({ ...item, overrides: item.overrides ?? {} })),
   };
 }
 
@@ -61,7 +62,11 @@ export async function getSetlistNav(
     };
   };
 
+  const item = setlist.items[index];
   return {
+    setlistId: setlist.id,
+    itemId: item.id,
+    overrides: item.overrides,
     name: setlist.name,
     index,
     total: setlist.items.length,

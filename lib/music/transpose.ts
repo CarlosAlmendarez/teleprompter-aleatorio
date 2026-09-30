@@ -99,3 +99,8 @@ export function keyFromFifths(fifths: number, mode: string | null): string | nul
   const name = (minor ? minors : majors).at(fifths + 7);
   return name ? name + (minor ? "m" : "") : null;
 }
+
+/** Display form: "Bb7/F#" → "B♭7/F♯" (only accidentals right after a note letter). */
+export function prettyAccidentals(name: string): string {
+  return name.replace(/([A-G])#/g, "$1♯").replace(/([A-G])b/g, "$1♭");
+}

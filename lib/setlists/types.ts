@@ -1,4 +1,7 @@
 import type { DocumentType } from "@/lib/types";
+import type { SetlistItemOverrides } from "@/lib/db/schema";
+
+export type { SetlistItemOverrides };
 
 export type SetlistKind = "music_set" | "script_sequence";
 
@@ -21,12 +24,17 @@ export type SetlistItemRow = {
   position: number;
   title: string;
   type: DocumentType;
+  overrides: SetlistItemOverrides;
 };
 
 export type SetlistDetail = Omit<SetlistSummary, "itemCount"> & { items: SetlistItemRow[] };
 
 /** Prev/next context passed to an immersive player during setlist playback. */
 export type SetlistNav = {
+  setlistId: string;
+  /** The playing step's row id, so in-player changes save to its overrides. */
+  itemId: string;
+  overrides: SetlistItemOverrides;
   name: string;
   index: number;
   total: number;

@@ -4,6 +4,7 @@ import {
   formatShift,
   keyFromFifths,
   parseKey,
+  prettyAccidentals,
   transposeChord,
   transposeKey,
 } from "./transpose";
@@ -83,5 +84,13 @@ describe("keys", () => {
     expect(formatShift(0)).toBe("0");
     expect(formatShift(2)).toBe("+2");
     expect(formatShift(-3)).toBe("−3");
+  });
+});
+
+describe("prettyAccidentals", () => {
+  it("uses musical symbols without touching extensions", () => {
+    expect(prettyAccidentals("Bb7/F#")).toBe("B♭7/F♯");
+    expect(prettyAccidentals("C7b9")).toBe("C7b9");
+    expect(prettyAccidentals("Ebm")).toBe("E♭m");
   });
 });

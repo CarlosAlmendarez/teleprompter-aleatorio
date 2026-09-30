@@ -34,6 +34,8 @@ export default async function ScorePlayerPage({
 
   return (
     <ChordChartPlayer
+      documentId={doc.id}
+      metadata={doc.metadata}
       title={chartData.title ?? doc.title}
       data={chartData}
       lyricSegments={lyricSegments}
