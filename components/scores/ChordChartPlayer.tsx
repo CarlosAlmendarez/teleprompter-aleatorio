@@ -9,6 +9,7 @@ import type { ChordChart } from "@/lib/musicxml/parseChordChart";
 import type { LyricSegment } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentPdfAttachment } from "@/lib/db/schema";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
+import { useWakeLock } from "@/components/player/useWakeLock";
 import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_SPEED_PCT = 50;
@@ -43,6 +44,7 @@ export function ChordChartPlayer({
   setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
+  useWakeLock();
   const measures = data.measures;
   const measureByNumber = new Map(measures.map((m) => [m.number, m]));
 

@@ -7,6 +7,7 @@ import { usePrompterEngine } from "./usePrompterEngine";
 import { PrompterToolbar } from "./PrompterToolbar";
 import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
+import { useWakeLock } from "@/components/player/useWakeLock";
 import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_FONT = 18;
@@ -52,6 +53,7 @@ export function PrompterView({
     speedRef,
   } = usePrompterEngine(viewportRef);
 
+  useWakeLock();
   const [barVisible, setBarVisible] = useState(true);
   const [hintVisible, setHintVisible] = useState(true);
 

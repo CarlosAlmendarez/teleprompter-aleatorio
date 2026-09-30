@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { SyncedPdfPane } from "@/components/pdf/SyncedPdfPane";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
+import { useWakeLock } from "@/components/player/useWakeLock";
 import type { SetlistNav } from "@/lib/setlists/types";
 
 const BUTTON_CLASS =
@@ -24,6 +25,7 @@ export function PdfPlayer({
   setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
+  useWakeLock();
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
