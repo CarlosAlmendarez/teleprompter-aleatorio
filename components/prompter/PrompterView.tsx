@@ -11,6 +11,9 @@ import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
 import { usePlayerSettings } from "@/components/player/usePlayerSettings";
 import { TransposeControl } from "@/components/player/TransposeControl";
+import { usePedal } from "@/components/player/usePedal";
+import { PedalSettings } from "@/components/player/PedalSettings";
+import { CountInOverlay, CountInToggle, useCountIn, useCountInPref } from "@/components/player/useCountIn";
 import type { SetlistNav } from "@/lib/setlists/types";
 import type { DocumentMetadata } from "@/lib/db/schema";
 import { resolvePlayerSettings } from "@/lib/player/settings";
@@ -81,6 +84,28 @@ export function PrompterView({
   });
 
   useWakeLock();
+  const countIn = useCountIn();
+  const [countInEnabled] = useCountInPref();
+
+  // Play/pause, with an optional 3-2-1 before auto-scroll starts. Pressing
+  // play again during the count cancels it.
+  function togglePlay() {
+    if (countIn.isCounting()) return countIn.cancel();
+    if (!playing && mode === "auto" && countInEnabled) countIn.start(3, 1000, () => setPlaying(true));
+    else setPlaying(!playing);
+  }
+  const togglePlayRef = useRef(togglePlay);
+  useEffect(() => {
+    togglePlayRef.current = togglePlay;
+  });
+
+  usePedal({
+    forward: () => scrollByScreen(1),
+    back: () => scrollByScreen(-1),
+    toggle: togglePlay,
+    next: setlistNav?.next ? () => router.push(setlistNav.next!.href) : undefined,
+    prev: setlistNav?.prev ? () => router.push(setlistNav.prev!.href) : undefined,
+  });
   const [barVisible, setBarVisible] = useState(true);
   const [hintVisible, setHintVisible] = useState(true);
 
@@ -93,7 +118,7 @@ export function PrompterView({
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === "Space") {
         e.preventDefault();
-        setPlaying(!playing);
+        togglePlayRef.current();
       } else if (e.code === "ArrowDown") {
         nudge(ARROW_NUDGE_PX);
       } else if (e.code === "ArrowUp") {
@@ -113,7 +138,13 @@ export function PrompterView({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [playing, mode, setPlaying, setMode, nudge, changeSpeed, speedStep, speedRef, router, backHref, save]);
+  }, [mode, setMode, nudge, changeSpeed, speedStep, speedRef, router, backHref, save]);
+
+  // A pedal press moves most of a screen, keeping some context in view.
+  function scrollByScreen(direction: 1 | -1) {
+    const el = viewportRef.current;
+    el?.scrollBy({ top: direction * el.clientHeight * 0.6, behavior: "smooth" });
+  }
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -183,7 +214,7 @@ export function PrompterView({
       <PrompterToolbar
         visible={barVisible}
         mode={mode}
-        playing={playing}
+        playing={playing || countIn.counting}
         mirror={mirror}
         title={title}
         backHref={backHref}
@@ -197,7 +228,7 @@ export function PrompterView({
         fontSizeInputRef={fontSizeInputRef}
         speedInputRef={speedInputRef}
         onModeChange={setMode}
-        onPlayingToggle={() => setPlaying(!playing)}
+        onPlayingToggle={togglePlay}
         onReset={reset}
         onSpeedInput={handleSpeedInput}
         onFontSizeInput={handleFontSizeInput}
@@ -208,14 +239,20 @@ export function PrompterView({
         pdfVisible={pdfVisible}
         onTogglePdf={() => setShowPdf((v) => !v)}
         extraControls={
-          song ? (
-            <TransposeControl
-              transpose={transpose}
-              capo={capo}
-              songKey={song.key}
-              onChange={handleTransposeChange}
+          <>
+            {song && (
+              <TransposeControl
+                transpose={transpose}
+                capo={capo}
+                songKey={song.key}
+                onChange={handleTransposeChange}
+              />
+            )}
+            <CountInToggle />
+            <PedalSettings
+              actions={setlistNav ? ["forward", "back", "toggle", "next", "prev"] : ["forward", "back", "toggle"]}
             />
-          ) : null
+          </>
         }
       />
 
@@ -263,6 +300,7 @@ export function PrompterView({
       >
         Toca la pantalla para mostrar/ocultar controles · Espacio = play/pausa
       </div>
+      <CountInOverlay count={countIn.count} />
       <SetlistNavBar nav={setlistNav} />
     </div>
   );

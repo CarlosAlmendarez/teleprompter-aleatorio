@@ -12,9 +12,12 @@ import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
 import { usePlayerSettings } from "@/components/player/usePlayerSettings";
 import { TransposeControl } from "@/components/player/TransposeControl";
+import { usePedal } from "@/components/player/usePedal";
+import { PedalSettings } from "@/components/player/PedalSettings";
+import { CountInOverlay, CountInToggle, useCountIn, useCountInPref } from "@/components/player/useCountIn";
 import type { DocumentMetadata } from "@/lib/db/schema";
 import { resolvePlayerSettings } from "@/lib/player/settings";
-import { accidentalsForShift, transposeChord } from "@/lib/music/transpose";
+import { accidentalsForShift, prettyAccidentals, transposeChord } from "@/lib/music/transpose";
 import type { SetlistNav } from "@/lib/setlists/types";
 
 const MIN_SPEED_PCT = 50;
@@ -205,6 +208,32 @@ export function ChordChartPlayer({
     }
   }
 
+  const countIn = useCountIn();
+  const [countInEnabled] = useCountInPref();
+  const countInEnabledRef = useRef(countInEnabled);
+  useEffect(() => {
+    countInEnabledRef.current = countInEnabled;
+  });
+
+  // Play/pause; with count-in on, one bar of clicks at the tempo and meter of
+  // the measure playback starts from. Pressing play during it cancels.
+  function togglePlay() {
+    if (countIn.isCounting()) return countIn.cancel();
+    if (playingState()) return setPlaying(false);
+    const measure = measures[activeIndexRef.current];
+    if (!countInEnabledRef.current || !measure) return setPlaying(true);
+    const beatMs = (60_000 / measure.tempo) * (4 / measure.beatType) / (speedRef.current / 100);
+    countIn.start(measure.beats, beatMs, () => setPlaying(true), { clicks: true });
+  }
+
+  usePedal({
+    forward: () => seekToMeasure(activeIndexRef.current + 1),
+    back: () => seekToMeasure(activeIndexRef.current - 1),
+    toggle: togglePlay,
+    next: setlistNav?.next ? () => router.push(setlistNav.next!.href) : undefined,
+    prev: setlistNav?.prev ? () => router.push(setlistNav.prev!.href) : undefined,
+  });
+
   useEffect(() => stopLoop, []);
 
   useEffect(() => {
@@ -220,7 +249,7 @@ export function ChordChartPlayer({
     function onKeyDown(e: KeyboardEvent) {
       if (e.code === "Space") {
         e.preventDefault();
-        setPlaying(!playingState());
+        togglePlay();
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         seekToMeasure(activeIndexRef.current + 1);
@@ -251,7 +280,7 @@ export function ChordChartPlayer({
   // Chords as shown: shifted by the transposition, minus the capo (shapes).
   const shift = transpose - capo;
   const accidentals = accidentalsForShift(data.key, shift, measures.find((m) => m.chords.length > 0)?.chords[0]);
-  const show = (chords: string[]) => chords.map((c) => transposeChord(c, shift, accidentals));
+  const show = (chords: string[]) => chords.map((c) => prettyAccidentals(transposeChord(c, shift, accidentals)));
 
   const activeMeasure = measures[activeIndex];
   const nextMeasure = measures[activeIndex + 1];
@@ -273,8 +302,8 @@ export function ChordChartPlayer({
         </Link>
         <span className="mr-1 truncate text-sm text-zinc-500 dark:text-zinc-400">{title}</span>
 
-        <button onClick={() => setPlaying(!playing)} className={BUTTON_CLASS}>
-          {playing ? "⏸ Pausar" : "▶ Reproducir"}
+        <button onClick={togglePlay} className={BUTTON_CLASS}>
+          {playing ? "⏸ Pausar" : countIn.counting ? "✕ Cancelar" : "▶ Reproducir"}
         </button>
         <button onClick={reset} className={BUTTON_CLASS}>
           ⟲ Inicio
@@ -306,6 +335,10 @@ export function ChordChartPlayer({
         />
 
         <div className="flex-1" />
+        <CountInToggle label="Entrada" />
+        <PedalSettings
+          actions={setlistNav ? ["forward", "back", "toggle", "next", "prev"] : ["forward", "back", "toggle"]}
+        />
         {pdf?.url && (
           <button
             onClick={() => setShowPdf((v) => !v)}
@@ -421,6 +454,7 @@ export function ChordChartPlayer({
       >
         Espacio = play/pausa · ←/→ compás · ↑/↓ tempo · R inicio · F pantalla completa
       </div>
+      <CountInOverlay count={countIn.count} />
       <SetlistNavBar nav={setlistNav} />
     </div>
   );

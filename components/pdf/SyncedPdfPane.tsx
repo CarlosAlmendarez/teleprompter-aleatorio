@@ -21,6 +21,8 @@ export type PdfPaneHandle = {
   seekFraction: (fraction: number) => void;
   /** Scroll so elapsed `seconds` of playback lines up with the PDF. */
   seekSeconds: (seconds: number) => void;
+  /** Smooth-scroll by most of a screen (pedal / page turn). */
+  scrollByPage: (direction: 1 | -1) => void;
 };
 
 type Props = {
@@ -69,6 +71,10 @@ export const SyncedPdfPane = forwardRef<PdfPaneHandle, Props>(function SyncedPdf
   totalDurationRef.current = totalDurationSec;
 
   useImperativeHandle(ref, () => ({
+    scrollByPage(direction) {
+      const el = scrollRef.current;
+      el?.scrollBy({ top: direction * el.clientHeight * 0.85, behavior: "smooth" });
+    },
     seekFraction(fraction) {
       const el = scrollRef.current;
       if (!el) return;

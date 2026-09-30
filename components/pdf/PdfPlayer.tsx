@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { SyncedPdfPane } from "@/components/pdf/SyncedPdfPane";
+import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
+import { usePedal } from "@/components/player/usePedal";
+import { PedalSettings } from "@/components/player/PedalSettings";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
 import type { SetlistNav } from "@/lib/setlists/types";
@@ -25,7 +27,14 @@ export function PdfPlayer({
   setlistNav?: SetlistNav | null;
 }) {
   const router = useRouter();
+  const paneRef = useRef<PdfPaneHandle>(null);
   useWakeLock();
+  usePedal({
+    forward: () => paneRef.current?.scrollByPage(1),
+    back: () => paneRef.current?.scrollByPage(-1),
+    next: setlistNav?.next ? () => router.push(setlistNav.next!.href) : undefined,
+    prev: setlistNav?.prev ? () => router.push(setlistNav.prev!.href) : undefined,
+  });
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -52,12 +61,13 @@ export function PdfPlayer({
         </Link>
         <span className="truncate text-sm text-zinc-500 dark:text-zinc-400">{title}</span>
         <div className="flex-1" />
+        <PedalSettings actions={setlistNav ? ["forward", "back", "next", "prev"] : ["forward", "back"]} />
         <ThemeToggle className={BUTTON_CLASS} />
         <button onClick={toggleFullscreen} className={BUTTON_CLASS} title="Pantalla completa (F)">
           ⛶
         </button>
       </div>
-      <SyncedPdfPane url={url} interactive className="min-h-0 flex-1" />
+      <SyncedPdfPane ref={paneRef} url={url} interactive className="min-h-0 flex-1" />
       <SetlistNavBar nav={setlistNav} />
     </div>
   );
