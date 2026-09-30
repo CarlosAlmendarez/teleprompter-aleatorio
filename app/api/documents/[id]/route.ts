@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { documents, folders, type DocumentMetadata } from "@/lib/db/schema";
 import { isResponse, requireUserId } from "@/lib/api/require-user";
 import { updateDocumentSchema } from "@/lib/api/document-schema";
+import { blobUrlsOf, deleteUnreferencedBlobs } from "@/lib/blob/cleanup";
 
 async function ownedDocument(userId: string, id: string) {
   const [row] = await db
@@ -79,6 +80,12 @@ export async function PATCH(
     .where(and(eq(documents.id, id), eq(documents.ownerId, userId)))
     .returning();
 
+  // A replaced or detached PDF leaves its old blob behind; drop it once the
+  // response is sent.
+  const stillUsed = new Set(blobUrlsOf(updated));
+  const dropped = blobUrlsOf(existing).filter((url) => !stillUsed.has(url));
+  if (dropped.length > 0) after(() => deleteUnreferencedBlobs(dropped));
+
   return NextResponse.json(updated);
 }
 
@@ -94,5 +101,7 @@ export async function DELETE(
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await db.delete(documents).where(and(eq(documents.id, id), eq(documents.ownerId, userId)));
+  const urls = blobUrlsOf(existing);
+  if (urls.length > 0) after(() => deleteUnreferencedBlobs(urls));
   return new NextResponse(null, { status: 204 });
 }

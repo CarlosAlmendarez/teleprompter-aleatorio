@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isBlobUrl } from "@/lib/blob/url";
 
 // Shared request-body schemas for the documents API. Kept in one place so the
 // collection route (POST) and the item route (PATCH) never drift apart.
@@ -8,8 +9,12 @@ const pdfAnchorSchema = z.object({
   measure: z.number().int().positive(),
 });
 
+// PDFs are only ever uploaded to our Vercel Blob store; rejecting other hosts
+// keeps pdf.js from being pointed at arbitrary URLs and scopes blob cleanup.
+const blobUrlSchema = z.url().refine(isBlobUrl, "Must be a Vercel Blob URL");
+
 const pdfAttachmentSchema = z.object({
-  url: z.url(),
+  url: blobUrlSchema,
   pageCount: z.number().int().positive().optional(),
   anchors: z.array(pdfAnchorSchema).max(200).optional(),
 });
@@ -44,7 +49,7 @@ export const createDocumentSchema = z.object({
   title: z.string().trim().min(1).max(200),
   folderId: z.uuid().nullable().optional(),
   content: z.string().max(500_000).nullable().optional(),
-  blobUrl: z.url().nullable().optional(),
+  blobUrl: blobUrlSchema.nullable().optional(),
   metadata: metadataSchema.optional(),
 });
 
@@ -52,6 +57,6 @@ export const updateDocumentSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   folderId: z.uuid().nullable().optional(),
   content: z.string().max(500_000).nullable().optional(),
-  blobUrl: z.url().nullable().optional(),
+  blobUrl: blobUrlSchema.nullable().optional(),
   metadata: metadataPatchSchema.optional(),
 });
