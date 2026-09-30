@@ -10,7 +10,13 @@ const SAVE_DELAY_MS = 500;
 
 type SaveStatus = "saved" | "pending" | "saving";
 
-export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
+export function DocumentEditor({
+  document: doc,
+  headerExtra,
+}: {
+  document: DocumentRow;
+  headerExtra?: React.ReactNode;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState(doc.title);
   const [content, setContent] = useState(doc.content ?? "");
@@ -106,6 +112,7 @@ export function DocumentEditor({ document: doc }: { document: DocumentRow }) {
           className="min-w-40 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-xl font-bold tracking-tight outline-none hover:border-black/10 focus:border-black/20 dark:hover:border-white/10 dark:focus:border-white/20"
         />
         <span className="whitespace-nowrap text-xs text-zinc-400">{statusLabel}</span>
+        {headerExtra}
         <Link
           href={`/prompter/${doc.id}`}
           onClick={() => flush()}

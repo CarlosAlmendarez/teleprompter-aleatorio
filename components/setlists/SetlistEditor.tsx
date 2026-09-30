@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { DocumentRow } from "@/lib/types";
 import { BUTTON_PRIMARY, ConfirmDialog } from "@/components/ui/Dialog";
 import { TYPE_LABEL, TYPE_STYLE } from "@/components/library/documentTypes";
+import { OfflineToggle } from "@/components/offline/OfflineToggle";
 import { SETLIST_KIND_LABEL, playerHref, type SetlistDetail } from "@/lib/setlists/types";
 
 type Item = Pick<SetlistDetail["items"][number], "documentId" | "title" | "type"> & {
@@ -18,7 +19,13 @@ const RENAME_DELAY_MS = 500;
 let keySeq = 0;
 const nextKey = () => `k${++keySeq}`;
 
-export function SetlistEditor({ setlist }: { setlist: SetlistDetail }) {
+export function SetlistEditor({
+  setlist,
+  offlineMarked = false,
+}: {
+  setlist: SetlistDetail;
+  offlineMarked?: boolean;
+}) {
   const router = useRouter();
   const [name, setName] = useState(setlist.name);
   const [items, setItems] = useState<Item[]>(() =>
@@ -113,6 +120,7 @@ export function SetlistEditor({ setlist }: { setlist: SetlistDetail }) {
           className="min-w-48 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-3xl font-bold tracking-tight outline-none hover:border-black/10 focus:border-emerald-500 dark:hover:border-white/10"
         />
         <span className={`text-xs ${status === "error" ? "text-red-500" : "text-zinc-400"}`}>{statusLabel}</span>
+        <OfflineToggle target={{ setlistId: setlist.id }} initialMarked={offlineMarked} />
         {items.length > 0 ? (
           <Link href={playerHref({ id: items[0].documentId, type: items[0].type }, { id: setlist.id, index: 0 })} className={BUTTON_PRIMARY}>
             ▶ Reproducir setlist

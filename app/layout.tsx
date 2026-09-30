@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
+import { ServiceWorkerManager } from "@/components/offline/ServiceWorkerManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +38,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <OfflineBanner />
+        <ServiceWorkerManager />
         {children}
       </body>
     </html>

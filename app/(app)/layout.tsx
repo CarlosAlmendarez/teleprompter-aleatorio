@@ -4,6 +4,8 @@ import { auth, signOut } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Logo } from "@/components/brand/Logo";
 import { MainNav } from "@/components/layout/MainNav";
+import { SignOutButton } from "@/components/layout/SignOutButton";
+import { ServiceWorkerManager } from "@/components/offline/ServiceWorkerManager";
 
 export default async function AppLayout({
   children,
@@ -49,19 +51,12 @@ export default async function AppLayout({
               )}
               <span className="hidden max-w-48 truncate text-xs sm:inline">{session.user.email}</span>
             </div>
-            <form action={handleSignOut}>
-              <button
-                type="submit"
-                title="Cerrar sesión"
-                className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium hover:bg-black/[.03] dark:border-white/15 dark:hover:bg-white/[.05]"
-              >
-                Salir
-              </button>
-            </form>
+            <SignOutButton action={handleSignOut} />
           </div>
         </div>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
+      <ServiceWorkerManager signedIn />
     </div>
   );
 }

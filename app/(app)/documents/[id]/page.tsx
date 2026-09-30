@@ -13,6 +13,8 @@ import { SyncedPdfPane } from "@/components/pdf/SyncedPdfPane";
 import { parseChordChart } from "@/lib/musicxml/parseChordChart";
 import { availableMeasureNumbers } from "@/lib/musicxml/parseLyricChart";
 import type { DocumentRow } from "@/lib/types";
+import { OfflineToggle } from "@/components/offline/OfflineToggle";
+import { isMarkedOffline } from "@/lib/offline/queries";
 
 export default async function DocumentPage({
   params,
@@ -31,6 +33,13 @@ export default async function DocumentPage({
 
   if (!doc) notFound();
 
+  const offlineToggle = (
+    <OfflineToggle
+      target={{ documentId: doc.id }}
+      initialMarked={await isMarkedOffline(session.user.id, { documentId: doc.id })}
+    />
+  );
+
   const serialized: DocumentRow = {
     ...doc,
     createdAt: doc.createdAt.toISOString(),
@@ -46,12 +55,15 @@ export default async function DocumentPage({
           title={chartData.title ?? doc.title}
           folderId={doc.folderId}
           extra={
-            <Link
-              href={`/scores/${doc.id}`}
-              className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
-            >
-              ▶ Reproducir
-            </Link>
+            <>
+              {offlineToggle}
+              <Link
+                href={`/scores/${doc.id}`}
+                className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+              >
+                ▶ Reproducir
+              </Link>
+            </>
           }
         />
         <ChordChart data={chartData} />
@@ -79,12 +91,15 @@ export default async function DocumentPage({
           folderId={doc.folderId}
           extra={
             doc.blobUrl ? (
-              <Link
-                href={`/pdf/${doc.id}`}
-                className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
-              >
-                ⛶ Pantalla completa
-              </Link>
+              <>
+                {offlineToggle}
+                <Link
+                  href={`/pdf/${doc.id}`}
+                  className="whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                >
+                  ⛶ Pantalla completa
+                </Link>
+              </>
             ) : undefined
           }
         />
@@ -106,7 +121,7 @@ export default async function DocumentPage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <DocumentEditor document={serialized} />
+      <DocumentEditor document={serialized} headerExtra={offlineToggle} />
       <div className="mx-auto w-full max-w-6xl">
         <PdfSyncEditor documentId={doc.id} metadata={doc.metadata} />
       </div>
