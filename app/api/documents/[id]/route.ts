@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { documents, folders } from "@/lib/db/schema";
+import { documents, folders, type DocumentMetadata } from "@/lib/db/schema";
 import { isResponse, requireUserId } from "@/lib/api/require-user";
 import { updateDocumentSchema } from "@/lib/api/document-schema";
 
@@ -54,7 +54,18 @@ export async function PATCH(
     }
   }
 
-  const { title, folderId, content, blobUrl, metadata } = parsed.data;
+  const { title, folderId, content, blobUrl, metadata: metadataPatch } = parsed.data;
+
+  let metadata: DocumentMetadata | undefined;
+  if (metadataPatch !== undefined) {
+    const merged: Record<string, unknown> = { ...(existing.metadata ?? {}) };
+    for (const [key, value] of Object.entries(metadataPatch)) {
+      if (value === null) delete merged[key];
+      else if (value !== undefined) merged[key] = value;
+    }
+    metadata = merged as DocumentMetadata;
+  }
+
   const [updated] = await db
     .update(documents)
     .set({

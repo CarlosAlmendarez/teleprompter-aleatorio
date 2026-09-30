@@ -23,6 +23,7 @@ export function PrompterToolbar({
   maxFontSize,
   defaultFontSize,
   fontSizeInputRef,
+  speedInputRef,
   onModeChange,
   onPlayingToggle,
   onReset,
@@ -49,6 +50,7 @@ export function PrompterToolbar({
   maxFontSize: number;
   defaultFontSize: number;
   fontSizeInputRef: RefObject<HTMLInputElement | null>;
+  speedInputRef: RefObject<HTMLInputElement | null>;
   onModeChange: (mode: PrompterMode) => void;
   onPlayingToggle: () => void;
   onReset: () => void;
@@ -103,7 +105,7 @@ export function PrompterToolbar({
 
       {mode === "auto" && (
         <button onClick={onPlayingToggle} className={BUTTON_CLASS}>
-          {playing ? "⏸ Pausar" : "▶ Reanudar"}
+          {playing ? "⏸ Pausar" : "▶ Iniciar"}
         </button>
       )}
 
@@ -114,6 +116,7 @@ export function PrompterToolbar({
       <div className="flex items-center gap-2">
         <label className="text-xs text-zinc-500 dark:text-zinc-400">Velocidad</label>
         <input
+          ref={speedInputRef}
           type="range"
           min={minSpeed}
           max={maxSpeed}

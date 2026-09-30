@@ -27,6 +27,7 @@ export function PrompterView({
   const viewportRef = useRef<HTMLDivElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const fontSizeInputRef = useRef<HTMLInputElement>(null);
+  const speedInputRef = useRef<HTMLInputElement>(null);
   const pdfPaneRef = useRef<PdfPaneHandle>(null);
   const [showPdf, setShowPdf] = useState(Boolean(pdfUrl));
 
@@ -44,6 +45,7 @@ export function PrompterView({
     minSpeed,
     maxSpeed,
     speedStep,
+    speedRef,
   } = usePrompterEngine(viewportRef);
 
   const [barVisible, setBarVisible] = useState(true);
@@ -63,10 +65,10 @@ export function PrompterView({
         nudge(ARROW_NUDGE_PX);
       } else if (e.code === "ArrowUp") {
         nudge(-ARROW_NUDGE_PX);
-      } else if (e.code === "ArrowRight") {
-        changeSpeed(speedStep);
-      } else if (e.code === "ArrowLeft") {
-        changeSpeed(-speedStep);
+      } else if (e.code === "ArrowRight" || e.code === "ArrowLeft") {
+        changeSpeed(e.code === "ArrowRight" ? speedStep : -speedStep);
+        // Keep the (uncontrolled) slider in step with keyboard changes.
+        if (speedInputRef.current) speedInputRef.current.value = String(speedRef.current);
       } else if (e.key === "m" || e.key === "M") {
         setMode(mode === "auto" ? "manual" : "auto");
       } else if (e.key === "f" || e.key === "F") {
@@ -77,7 +79,7 @@ export function PrompterView({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [playing, mode, setPlaying, setMode, nudge, changeSpeed, speedStep, router, backHref]);
+  }, [playing, mode, setPlaying, setMode, nudge, changeSpeed, speedStep, speedRef, router, backHref]);
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -126,6 +128,7 @@ export function PrompterView({
         maxFontSize={MAX_FONT}
         defaultFontSize={DEFAULT_FONT}
         fontSizeInputRef={fontSizeInputRef}
+        speedInputRef={speedInputRef}
         onModeChange={setMode}
         onPlayingToggle={() => setPlaying(!playing)}
         onReset={reset}

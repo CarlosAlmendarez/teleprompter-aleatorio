@@ -14,7 +14,9 @@ export type PrompterMode = "auto" | "manual";
  */
 export function usePrompterEngine(viewportRef: RefObject<HTMLDivElement | null>) {
   const [mode, setModeState] = useState<PrompterMode>("auto");
-  const [playing, setPlayingState] = useState(true);
+  // Starts paused: the loop only runs once the user presses play, so the
+  // button label always matches what the viewport is actually doing.
+  const [playing, setPlayingState] = useState(false);
   const [mirror, setMirror] = useState(false);
 
   const speedRef = useRef(40); // px/sec

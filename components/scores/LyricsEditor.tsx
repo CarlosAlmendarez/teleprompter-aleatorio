@@ -32,7 +32,7 @@ export function LyricsEditor({
     await fetch(`/api/documents/${documentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metadata: { ...metadata, lyrics: latestRef.current } }),
+      body: JSON.stringify({ metadata: { lyrics: latestRef.current } }),
       keepalive: true,
     });
     setStatus("saved");
@@ -54,7 +54,7 @@ export function LyricsEditor({
         fetch(`/api/documents/${documentId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ metadata: { ...metadata, lyrics: latestRef.current } }),
+          body: JSON.stringify({ metadata: { lyrics: latestRef.current } }),
           keepalive: true,
         });
       }

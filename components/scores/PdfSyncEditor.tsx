@@ -34,17 +34,14 @@ export function PdfSyncEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sends the whole `metadata` object (the API replaces the jsonb column). Base
-  // fields are spread from the server snapshot, same as LyricsEditor.
+  // Sends only the `pdf` key — the API merges it into the stored metadata, so
+  // this never clobbers lyrics saved by LyricsEditor. `null` detaches the PDF.
   async function patchPdf(pdf: DocumentMetadata["pdf"] | null) {
     setStatus("saving");
-    const nextMetadata: DocumentMetadata = { ...metadata };
-    if (pdf) nextMetadata.pdf = pdf;
-    else delete nextMetadata.pdf;
     const res = await fetch(`/api/documents/${documentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metadata: nextMetadata }),
+      body: JSON.stringify({ metadata: { pdf } }),
       keepalive: true,
     });
     setStatus(res.ok ? "saved" : "error");

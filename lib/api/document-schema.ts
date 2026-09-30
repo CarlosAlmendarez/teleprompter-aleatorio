@@ -25,6 +25,20 @@ export const metadataSchema = z
   })
   .partial();
 
+// PATCH sends only the metadata keys it changes; the route shallow-merges them
+// into the stored object so independent editors on the same page (lyrics, PDF)
+// can't overwrite each other. `null` removes a key.
+export const metadataPatchSchema = z
+  .object({
+    key: z.string().max(20).nullable(),
+    tempo: z.number().int().positive().nullable(),
+    notes: z.string().max(2000).nullable(),
+    durationSec: z.number().int().positive().nullable(),
+    lyrics: z.string().max(200_000).nullable(),
+    pdf: pdfAttachmentSchema.nullable(),
+  })
+  .partial();
+
 export const createDocumentSchema = z.object({
   type: z.enum(["pdf", "musicxml", "text", "chordpro"]),
   title: z.string().trim().min(1).max(200),
@@ -39,5 +53,5 @@ export const updateDocumentSchema = z.object({
   folderId: z.uuid().nullable().optional(),
   content: z.string().max(500_000).nullable().optional(),
   blobUrl: z.url().nullable().optional(),
-  metadata: metadataSchema.optional(),
+  metadata: metadataPatchSchema.optional(),
 });
