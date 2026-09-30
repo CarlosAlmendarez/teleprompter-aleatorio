@@ -8,11 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import type { PdfAnchor } from "@/lib/db/schema";
 import { anchorControlPoints, scrollAtTime } from "@/lib/pdf/anchors";
 
-const MAX_PAGES = 60;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.2;
@@ -39,7 +38,7 @@ type Props = {
 };
 
 /**
- * Renders every page of a PDF to stacked canvases in a scroll container and
+ * Renders a PDF as stacked, lazily painted pages in a scroll container and
  * exposes an imperative `seek*` handle. All seeking writes `scrollTop`
  * directly — no React state per frame — so the caller's rAF playback loop can
  * drive it without re-rendering this tree.
@@ -55,6 +54,7 @@ export const SyncedPdfPane = forwardRef<PdfPaneHandle, Props>(function SyncedPdf
   const zoomRef = useRef(1);
   const renderTokenRef = useRef(0);
   const lastWidthRef = useRef(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [zoomPct, setZoomPct] = useState(100);
@@ -92,9 +92,13 @@ export const SyncedPdfPane = forwardRef<PdfPaneHandle, Props>(function SyncedPdf
     },
   }));
 
-  // Renders (or re-renders, on zoom/resize) every page to a fresh canvas strip.
-  // `renderTokenRef` supersedes an in-flight run so a slow render can't clobber
-  // a newer one. Only reads/writes refs, so it's stable across renders.
+  // Lays out (or re-lays out, on zoom/resize) one fixed-size placeholder per
+  // page, then paints canvases lazily: an IntersectionObserver renders pages
+  // as they approach the viewport and frees them once far away, so long PDFs
+  // neither block on a full render nor hold hundreds of canvases in memory.
+  // Placeholders have final dimensions up front, so page offsets (used for
+  // anchor sync) are exact before any canvas exists. `renderTokenRef`
+  // supersedes an in-flight layout so a slow run can't clobber a newer one.
   const renderAll = useCallback(async () => {
     const strip = stripRef.current;
     const scroller = scrollRef.current;
@@ -102,44 +106,79 @@ export const SyncedPdfPane = forwardRef<PdfPaneHandle, Props>(function SyncedPdf
     if (!strip || !scroller || !pdf) return;
 
     const token = ++renderTokenRef.current;
+    observerRef.current?.disconnect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const available = scroller.clientWidth - 24;
     if (available <= 0) return;
 
-    const pageCount = Math.min(pdf.numPages, MAX_PAGES);
-    const rendered = document.createElement("div");
-
-    for (let n = 1; n <= pageCount; n++) {
-      if (token !== renderTokenRef.current) return;
+    const slots: HTMLDivElement[] = [];
+    for (let n = 1; n <= pdf.numPages; n++) {
       const page = await pdf.getPage(n);
+      if (token !== renderTokenRef.current) return;
       const base = page.getViewport({ scale: 1 });
       const cssScale = (available / base.width) * zoomRef.current;
-      const viewport = page.getViewport({ scale: cssScale * dpr });
-
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width / dpr}px`;
-      canvas.style.height = `${viewport.height / dpr}px`;
-      canvas.className = "mx-auto mb-2 block rounded bg-white shadow-sm";
-
-      const wrapper = document.createElement("div");
-      wrapper.appendChild(canvas);
-      rendered.appendChild(wrapper);
-
-      await page.render({ canvas, viewport }).promise;
-      if (token !== renderTokenRef.current) return;
+      const slot = document.createElement("div");
+      slot.dataset.page = String(n);
+      slot.dataset.scale = String(cssScale);
+      slot.className = "mx-auto mb-2 rounded bg-white shadow-sm";
+      slot.style.width = `${base.width * cssScale}px`;
+      slot.style.height = `${base.height * cssScale}px`;
+      slots.push(slot);
     }
 
-    if (token !== renderTokenRef.current) return;
-    strip.replaceChildren(...Array.from(rendered.children));
+    // Keep the reading position (as a fraction) across zoom/resize relayouts.
+    const prevMax = scroller.scrollHeight - scroller.clientHeight;
+    const prevFraction = prevMax > 0 ? scroller.scrollTop / prevMax : 0;
+
+    strip.replaceChildren(...slots);
     // scrollTop value that brings each page's top to the container's top edge —
     // computed from rects so container padding / positioning don't skew it.
     const originTop = scroller.getBoundingClientRect().top - scroller.scrollTop;
-    pageOffsetsRef.current = Array.from(strip.children).map(
-      (child) => child.getBoundingClientRect().top - originTop,
-    );
+    pageOffsetsRef.current = slots.map((slot) => slot.getBoundingClientRect().top - originTop);
     lastWidthRef.current = scroller.clientWidth;
+    const nextMax = scroller.scrollHeight - scroller.clientHeight;
+    scroller.scrollTop = prevFraction * Math.max(nextMax, 0);
+
+    const tasks = new Map<HTMLDivElement, RenderTask>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const slot = entry.target as HTMLDivElement;
+          if (!entry.isIntersecting) {
+            tasks.get(slot)?.cancel();
+            tasks.delete(slot);
+            slot.replaceChildren();
+            continue;
+          }
+          if (slot.firstChild || tasks.has(slot)) continue;
+          void (async () => {
+            const page = await pdf.getPage(Number(slot.dataset.page));
+            if (token !== renderTokenRef.current) return;
+            const viewport = page.getViewport({ scale: Number(slot.dataset.scale) * dpr });
+            const canvas = document.createElement("canvas");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.className = "block h-full w-full rounded";
+            const task = page.render({ canvas, viewport });
+            tasks.set(slot, task);
+            try {
+              await task.promise;
+              if (token === renderTokenRef.current && tasks.get(slot) === task) {
+                slot.replaceChildren(canvas);
+              }
+            } catch {
+              // Cancelled (scrolled away / superseded) — nothing to do.
+            } finally {
+              if (tasks.get(slot) === task) tasks.delete(slot);
+            }
+          })();
+        }
+      },
+      // Pre-render roughly one screen above and below the viewport.
+      { root: scroller, rootMargin: "100% 0px" },
+    );
+    slots.forEach((slot) => observer.observe(slot));
+    observerRef.current = observer;
     setStatus("ready");
   }, []);
 
@@ -181,6 +220,7 @@ export const SyncedPdfPane = forwardRef<PdfPaneHandle, Props>(function SyncedPdf
       renderTokenRef.current += 1;
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeObserver?.disconnect();
+      observerRef.current?.disconnect();
       void loadingTask?.destroy();
       pdfRef.current = null;
     };
