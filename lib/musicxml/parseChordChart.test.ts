@@ -13,7 +13,7 @@ const SCORE = `<?xml version="1.0"?>
   <work><work-title> Mi Canción </work-title></work>
   <part id="P1">
     <measure number="1">
-      <attributes><time><beats>4</beats><beat-type>4</beat-type></time><key><mode>minor</mode></key></attributes>
+      <attributes><time><beats>4</beats><beat-type>4</beat-type></time><key><fifths>-2</fifths><mode>minor</mode></key></attributes>
       <direction><sound tempo="120"/><direction-type><metronome><per-minute>120</per-minute></metronome></direction-type></direction>
       ${harmony("C", "major")}
       ${harmony("A", "minor-seventh")}
@@ -39,6 +39,7 @@ describe("parseChordChart", () => {
     expect(chart.beats).toBe(4);
     expect(chart.beatType).toBe(4);
     expect(chart.keyMode).toBe("minor");
+    expect(chart.key).toBe("Gm");
   });
 
   it("builds chord symbols with alterations and kind text overrides", () => {

@@ -4,6 +4,8 @@
 // needs to read a handful of flat leaf elements, and running as plain
 // string matching means it works in a Server Component with no client JS.
 
+import { keyFromFifths } from "@/lib/music/transpose";
+
 const KIND_SYMBOL: Record<string, string> = {
   major: "",
   minor: "m",
@@ -58,6 +60,8 @@ export type ChordChart = {
   beats: number | null;
   beatType: number | null;
   keyMode: string | null;
+  /** Key name ("Bb", "Em") from the first <fifths>/<mode>, for transposition. */
+  key: string | null;
   measures: ChordChartMeasure[];
   totalDurationSec: number;
 };
@@ -94,6 +98,7 @@ export function parseChordChart(xml: string): ChordChart {
   const initialBeats = firstMatch(xml, /<beats>\s*(\d+)\s*<\/beats>/);
   const initialBeatType = firstMatch(xml, /<beat-type>\s*(\d+)\s*<\/beat-type>/);
   const keyMode = firstMatch(xml, /<mode>\s*([\w-]+)\s*<\/mode>/);
+  const fifths = firstMatch(xml, /<fifths>\s*(-?\d+)\s*<\/fifths>/);
 
   const measures: ChordChartMeasure[] = [];
   let tempo = initialTempo ? Number(initialTempo) : DEFAULT_TEMPO;
@@ -138,6 +143,7 @@ export function parseChordChart(xml: string): ChordChart {
     beats: initialBeats ? Number(initialBeats) : null,
     beatType: initialBeatType ? Number(initialBeatType) : null,
     keyMode,
+    key: fifths !== null ? keyFromFifths(Number(fifths), keyMode) : null,
     measures,
     totalDurationSec: cursorSec,
   };
