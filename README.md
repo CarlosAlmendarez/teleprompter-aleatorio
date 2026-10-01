@@ -36,9 +36,14 @@ usar incluso sin conexión.
   desplaza al ritmo del reproductor (con marcas opcionales `página:compás`).
   Las páginas se dibujan bajo demanda, sin límite de longitud.
 - **Biblioteca** con carpetas anidadas, búsqueda, orden e importación arrastrando
-  archivos `.txt`, `.musicxml`/`.xml` y `.pdf`.
+  archivos `.txt`, `.docx` (Word), `.cho`/`.pro`/`.chopro` (ChordPro), `.onsong`,
+  `.musicxml`/`.xml` y `.pdf`.
 - **Setlists**: ordena documentos y reprodúcelos uno tras otro, con ajustes
   propios por paso (velocidad, tono, cejilla, tempo) y una nota de transición.
+  Compártelos con un **enlace de solo lectura** (con caducidad opcional y
+  revocable) para que la banda los abra sin cuenta.
+- **Grabar vídeo** mientras lees (Herramientas → Grabar vídeo con la cámara): la
+  cámara se ve de fondo y el vídeo se descarga en tu dispositivo.
 - **Modo sin conexión**: marca documentos o setlists como “Disponible sin
   conexión” y ábrelos sin internet. Se puede instalar como app (PWA).
 

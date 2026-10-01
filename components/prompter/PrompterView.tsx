@@ -12,6 +12,7 @@ import { SessionTimer } from "./SessionTimer";
 import { ToolsMenu, type ToolItem } from "./ToolsMenu";
 import { useVoiceScroll, useVoiceSupported } from "./useVoiceScroll";
 import { requestSecondScreen, secondScreenSupported, useOperatorLink } from "./useOperatorLink";
+import { useCameraRecorder } from "./useCameraRecorder";
 import { SyncedPdfPane, type PdfPaneHandle } from "@/components/pdf/SyncedPdfPane";
 import { SetlistNavBar } from "@/components/setlists/SetlistNavBar";
 import { useWakeLock } from "@/components/player/useWakeLock";
@@ -25,7 +26,7 @@ import type { DocumentMetadata } from "@/lib/db/schema";
 import type { PrompterCommand, PrompterSnapshot } from "@/lib/player/prompterCommands";
 import { resolvePlayerSettings, type PlayerSettings } from "@/lib/player/settings";
 import { READING_FONTS, READING_THEMES } from "@/lib/player/reading";
-import { remainingSeconds } from "@/lib/player/timing";
+import { formatClock, remainingSeconds } from "@/lib/player/timing";
 import { SECTION_LABEL, firstChord, parseChordPro } from "@/lib/chordpro/parse";
 import { parseScript, tokenizeScript } from "@/lib/script/parse";
 import { accidentalsForShift, prettyAccidentals, transposeChord } from "@/lib/music/transpose";
@@ -166,6 +167,13 @@ export function PrompterView({
   });
   const linked = link.role === "controller" && link.connected;
   const lastPersisted = useRef<PlayerSettings>({});
+
+  const camera = useCameraRecorder(title);
+  const cameraOn = camera.stream !== null;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.srcObject = camera.stream;
+  }, [camera.stream]);
 
   // ---------------------------------------------------------------------------
   // Viewport helpers
@@ -392,6 +400,18 @@ export function PrompterView({
     voice.start(from);
   }
 
+  // Recording starts the scroll too (with the 3-2-1 if enabled) and stopping
+  // pauses it, so a take is one press each way.
+  function startRecording() {
+    if (!camera.start()) return;
+    if (!playing && mode === "auto") togglePlayLocal();
+  }
+
+  function stopRecording() {
+    camera.stop();
+    if (playing) setPlaying(false);
+  }
+
   function openReader() {
     const ok = link.openReader((id) => `${window.location.pathname}?view=reader&link=${id}`);
     if (!ok) setLinkNotice("El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio.");
@@ -490,6 +510,15 @@ export function PrompterView({
     { id: "pedal", label: "Pedal Bluetooth…", active: pedalConfig.enabled, onSelect: () => setToolsDialog("pedal") },
     { id: "reading", label: "Lectura: letra, colores, guía…", onSelect: () => setToolsDialog("reading") },
   ];
+  if (!isReader && !linked) {
+    tools.push({
+      id: "camera",
+      label: cameraOn ? "Cerrar cámara" : "Grabar vídeo con la cámara…",
+      active: cameraOn,
+      hint: "La cámara se ve de fondo; el vídeo se descarga en este dispositivo",
+      onSelect: cameraOn ? camera.closeCamera : () => void camera.openCamera(),
+    });
+  }
   if (!isReader) {
     tools.push(
       link.role === "controller"
@@ -579,9 +608,16 @@ export function PrompterView({
         }
       />
 
-      {(voice.error || linkNotice) && (
+      {(voice.error || linkNotice || camera.error) && (
         <div role="alert" className="bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-black">
           {linkNotice ??
+            (camera.error === "permission"
+              ? "Sin permiso para la cámara o el micrófono. Actívalo en la configuración del sitio."
+              : camera.error === "unavailable"
+                ? "No se encontró ninguna cámara disponible."
+                : camera.error === "unsupported"
+                  ? "Este navegador no permite grabar vídeo."
+                  : null) ??
             (voice.error === "permission"
               ? "Sin permiso para el micrófono. Actívalo en la configuración del sitio."
               : voice.error === "microphone"
@@ -596,10 +632,23 @@ export function PrompterView({
         {/* The guide sits outside the scroller so it stays put while the text
             moves; the vertical mirror flips both together. */}
         <div
-          className={`relative flex min-h-0 flex-1 flex-col ${theme.surface} ${
+          className={`relative flex min-h-0 flex-1 flex-col ${cameraOn ? "bg-black text-white" : theme.surface} ${
             applyMirrors && reading.mirrorVertical ? "[transform:scaleY(-1)]" : ""
           }`}
         >
+          {cameraOn && (
+            <>
+              {/* Selfie view behind the text; the recording itself is not mirrored. */}
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover [transform:scaleX(-1)]"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/10" />
+            </>
+          )}
           {reading.guide.show && (
             <div
               className="pointer-events-none absolute inset-x-0 z-10 bg-emerald-500/40 dark:bg-emerald-400/40"
@@ -623,7 +672,9 @@ export function PrompterView({
                   paddingTop: `${reading.guide.position + 5}vh`,
                   textAlign: reading.align,
                 }}
-                className={`break-words pb-[60vh] transition-[font-size] duration-150 ${
+                className={`relative break-words pb-[60vh] transition-[font-size] duration-150 ${
+                  cameraOn ? "[text-shadow:0_2px_10px_rgba(0,0,0,0.85)]" : ""
+                } ${
                   applyMirrors && mirror ? "[transform:scaleX(-1)]" : ""
                 }`}
               >
@@ -679,6 +730,25 @@ export function PrompterView({
         targetSec={targetSec}
         onTargetChange={isReader || readOnly ? undefined : saveTarget}
       />
+      {cameraOn && (
+        <div
+          className="fixed left-1/2 top-20 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 p-1.5 text-sm text-white shadow-xl backdrop-blur"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {camera.recording ? (
+            <button onClick={stopRecording} className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-1.5 font-semibold">
+              <span className="h-2.5 w-2.5 rounded-sm bg-white" /> Detener · {formatClock(camera.elapsed)}
+            </button>
+          ) : (
+            <button onClick={startRecording} className="flex items-center gap-2 rounded-full bg-white px-4 py-1.5 font-semibold text-black">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-600" /> Grabar
+            </button>
+          )}
+          <button onClick={camera.closeCamera} disabled={camera.recording} className="rounded-full px-3 py-1.5 text-white/80 hover:text-white disabled:opacity-40">
+            Cerrar cámara
+          </button>
+        </div>
+      )}
       <CountInOverlay count={countIn.count} />
       {!isReader && <SetlistNavBar nav={setlistNav} />}
       <PedalSettings
