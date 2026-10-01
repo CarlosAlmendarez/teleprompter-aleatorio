@@ -66,16 +66,20 @@ export default async function DocumentPage({
             </>
           }
         />
-        <ChordChart data={chartData} />
+        <ChordChart
+          data={chartData}
+          transpose={doc.metadata?.transpose ?? 0}
+          capo={doc.metadata?.capo ?? 0}
+        />
         <LyricsEditor
           documentId={doc.id}
           metadata={doc.metadata}
-          measureNumbers={availableMeasureNumbers(chartData.measures)}
+          measureNumbers={availableMeasureNumbers(chartData.written)}
         />
         <PdfSyncEditor
           documentId={doc.id}
           metadata={doc.metadata}
-          measureNumbers={availableMeasureNumbers(chartData.measures)}
+          measureNumbers={availableMeasureNumbers(chartData.written)}
           withAnchors
         />
       </div>

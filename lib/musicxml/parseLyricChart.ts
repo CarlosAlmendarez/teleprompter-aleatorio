@@ -11,32 +11,41 @@ export type LyricSegment = {
 
 /**
  * Splits raw lyrics text (with `{m:N}` tags marking where each measure's
- * lyrics begin) into segments, resolving each tag's real-time start offset
- * from the chord chart's already-computed measure timing. Lines before the
- * first tag are dropped — they have no measure to sync against.
+ * lyrics begin) into segments timed against the chart's playing order.
+ * With repeats, the k-th `{m:N}` tag is the k-th time measure N is played
+ * (verse 1, then verse 2 over the same measures); a section tagged fewer
+ * times than it is played (a chorus written once) is shown again on the
+ * later passes. Lines before the first valid tag are dropped.
  */
 export function parseLyricSegments(
   lyricsText: string,
   measures: ChordChart["measures"],
 ): LyricSegment[] {
-  const startSecByMeasure = new Map(measures.map((m) => [m.number, m.startSec]));
+  const passes = new Map<string, number[]>();
+  for (const m of measures) passes.set(m.number, [...(passes.get(m.number) ?? []), m.startSec]);
+
   const segments: LyricSegment[] = [];
+  const tagsUsed = new Map<string, number>();
+  const lastSegment = new Map<string, LyricSegment>();
   let current: LyricSegment | null = null;
 
   for (const rawLine of lyricsText.split("\n")) {
     const tagMatch = rawLine.match(MEASURE_TAG_RE);
     if (tagMatch) {
       const measureNumber = tagMatch[1];
-      const startSec = startSecByMeasure.get(measureNumber);
-      if (startSec === undefined) {
-        // Unknown measure number: drop this tag and everything until the
-        // next valid one, rather than letting those lines leak into the
-        // previous segment.
+      const starts = passes.get(measureNumber);
+      const used = tagsUsed.get(measureNumber) ?? 0;
+      if (!starts || used >= starts.length) {
+        // Unknown measure (or more tags than times it is played): drop this
+        // tag and everything until the next valid one, rather than letting
+        // those lines leak into the previous segment.
         current = null;
         continue;
       }
-      current = { measureNumber, startSec, lines: [] };
+      tagsUsed.set(measureNumber, used + 1);
+      current = { measureNumber, startSec: starts[used], lines: [] };
       segments.push(current);
+      lastSegment.set(measureNumber, current);
       continue;
     }
     if (!current) continue; // no valid tag seen yet
@@ -50,11 +59,21 @@ export function parseLyricSegments(
     }
   }
 
+  for (const [measureNumber, starts] of passes) {
+    const used = tagsUsed.get(measureNumber) ?? 0;
+    const last = lastSegment.get(measureNumber);
+    if (!last) continue;
+    for (let pass = used; pass < starts.length; pass++) {
+      segments.push({ measureNumber, startSec: starts[pass], lines: [...last.lines] });
+    }
+  }
+
   return segments.sort((a, b) => a.startSec - b.startSec);
 }
 
+/** Distinct measure numbers in score order. */
 export function availableMeasureNumbers(measures: ChordChart["measures"]): string[] {
-  return measures.map((m) => m.number);
+  return [...new Set(measures.map((m) => m.number))];
 }
 
 export type LyricIssues = {

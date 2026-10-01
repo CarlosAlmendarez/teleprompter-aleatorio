@@ -87,11 +87,12 @@ export function ChordChartPlayer({
   const tempoInputRef = useRef<HTMLInputElement>(null);
   const [hintVisible, setHintVisible] = useState(true);
 
-  // measure number → seconds from song start, for PDF anchor interpolation.
-  const measureStartSec = useMemo(
-    () => new Map(measures.map((m) => [Number(m.number), m.startSec])),
-    [measures],
-  );
+  // measure number → every time (s) it starts, for PDF anchor interpolation.
+  const measureStartSec = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const m of measures) map.set(Number(m.number), [...(map.get(Number(m.number)) ?? []), m.startSec]);
+    return map;
+  }, [measures]);
 
   function currentElapsed(): number {
     if (!playingState()) return elapsedBaseRef.current;
@@ -406,7 +407,7 @@ export function ChordChartPlayer({
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {measures.map((measure, i) => (
                 <div
-                  key={measure.number}
+                  key={i}
                   ref={(el) => {
                     measureElRefs.current[i] = el;
                   }}
@@ -418,6 +419,7 @@ export function ChordChartPlayer({
                 >
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
                     {measure.number}
+                    {measure.pass > 0 && <span className="ml-1 text-emerald-600 dark:text-emerald-400">{measure.pass + 1}ª vez</span>}
                   </span>
                   <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
                     {measure.chords.length > 0 ? (

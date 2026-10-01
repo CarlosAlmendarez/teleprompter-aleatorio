@@ -61,3 +61,24 @@ describe("anchorControlPoints + scrollAtTime", () => {
     expect(scrollAtTime([], 5)).toBe(0);
   });
 });
+
+describe("anchors with repeats", () => {
+  it("adds a point each time the anchored measure is played, scrolling back", () => {
+    const points = anchorControlPoints({
+      anchors: [{ page: 1, measure: 1 }, { page: 2, measure: 5 }],
+      // measure 1 is played at 0 s and again at 40 s (repeat)
+      measureStartSec: (m) => (m === 1 ? [0, 40] : m === 5 ? [20] : undefined),
+      pageTop: (p) => [0, 1000][p - 1],
+      totalDurationSec: 60,
+      scrollMax: 1500,
+    });
+    expect(points).toEqual([
+      { t: 0, scroll: 0 },
+      { t: 0, scroll: 0 },
+      { t: 20, scroll: 1000 },
+      { t: 40, scroll: 0 },
+      { t: 60, scroll: 1500 },
+    ]);
+    expect(scrollAtTime(points, 30)).toBe(500); // heading back up for the repeat
+  });
+});

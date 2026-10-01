@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChordChart } from "./parseChordChart";
+import { parseChordChart, playingOrder } from "./parseChordChart";
 
 function harmony(step: string, kind: string, alter?: number, text?: string) {
   return `<harmony>
@@ -61,5 +61,94 @@ describe("parseChordChart", () => {
 
   it("returns an empty chart for empty input", () => {
     expect(parseChordChart("")).toMatchObject({ title: null, measures: [], totalDurationSec: 0 });
+  });
+});
+
+describe("multi-part scores", () => {
+  const h = (step: string) => `<harmony><root><root-step>${step}</root-step></root><kind>major</kind></harmony>`;
+  const xml = `<part-list><score-part id="P1"><part-name>Voz</part-name></score-part></part-list>
+    <part id="P1">
+      <measure number="1"><direction><sound tempo="60"/></direction></measure>
+      <measure number="2"></measure>
+    </part>
+    <part id="P2">
+      <measure number="1">${h("C")}</measure>
+      <measure number="2">${h("G")}</measure>
+    </part>`;
+  const chart = parseChordChart(xml);
+
+  it("reads measures once, from the part with the chords", () => {
+    expect(chart.measures.map((m) => `${m.number}:${m.chords.join("")}`)).toEqual(["1:C", "2:G"]);
+  });
+
+  it("still applies tempo marks written on another part", () => {
+    // 4/4 at 60 bpm = 4 s per measure
+    expect(chart.totalDurationSec).toBe(8);
+  });
+});
+
+describe("playing order", () => {
+  const measure = (n: number, inner = "") => `<measure number="${n}">${inner}</measure>`;
+  const fwd = `<barline location="left"><repeat direction="forward"/></barline>`;
+  const back = (times?: number) =>
+    `<barline location="right"><repeat direction="backward"${times ? ` times="${times}"` : ""}/></barline>`;
+  const ending = (n: string, type: string) => `<barline><ending number="${n}" type="${type}"/></barline>`;
+  const order = (xml: string) => parseChordChart(xml).measures.map((m) => m.number).join(" ");
+
+  it("repeats a section twice by default, or `times` times", () => {
+    expect(order(measure(1) + measure(2, fwd) + measure(3, back()) + measure(4))).toBe("1 2 3 2 3 4");
+    expect(order(measure(1, fwd) + measure(2, back(3)))).toBe("1 2 1 2 1 2");
+  });
+
+  it("repeats from the start when there is no forward repeat", () => {
+    expect(order(measure(1) + measure(2, back()) + measure(3))).toBe("1 2 1 2 3");
+  });
+
+  it("takes first and second endings in turn", () => {
+    const xml =
+      measure(1, fwd) +
+      measure(2, ending("1", "start") + ending("1", "stop") + back()) +
+      measure(3, ending("2", "start") + ending("2", "discontinue")) +
+      measure(4);
+    expect(order(xml)).toBe("1 2 1 3 4");
+  });
+
+  it("follows D.C. al Fine without taking repeats again", () => {
+    const xml =
+      measure(1, fwd) + measure(2, `<direction><sound fine="yes"/></direction>` + back()) + measure(3, `<sound dacapo="yes"/>`);
+    expect(order(xml)).toBe("1 2 1 2 3 1 2");
+  });
+
+  it("follows D.S. al Coda", () => {
+    const xml =
+      measure(1) +
+      measure(2, `<direction><direction-type><segno/></direction-type></direction>`) +
+      measure(3, `<sound tocoda="coda"/>`) +
+      measure(4, `<sound dalsegno="segno"/>`) +
+      measure(5, `<direction><direction-type><coda/></direction-type></direction>`);
+    expect(order(xml)).toBe("1 2 3 4 2 3 5");
+  });
+
+  it("numbers each pass and times the unrolled order", () => {
+    const chart = parseChordChart(measure(1, fwd) + measure(2, back()));
+    expect(chart.measures.map((m) => m.pass)).toEqual([0, 0, 1, 1]);
+    expect(chart.measures.map((m) => m.startSec)).toEqual([0, 2, 4, 6]);
+    expect(chart.written.map((m) => m.number)).toEqual(["1", "2"]);
+  });
+
+  it("never loops forever on malformed marks", () => {
+    const flags = Array.from({ length: 3 }, () => ({
+      forward: false,
+      backward: null,
+      endingStart: null,
+      endingStop: false,
+      segno: false,
+      coda: false,
+      toCoda: false,
+      daCapo: true,
+      dalSegno: false,
+      fine: false,
+    }));
+    expect(playingOrder(flags).length).toBeLessThanOrEqual(3 * 8 + 64);
   });
 });

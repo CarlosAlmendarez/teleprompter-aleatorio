@@ -38,7 +38,9 @@ export type ScrollControlPoint = { t: number; scroll: number };
  * Builds the piecewise-linear curve mapping elapsed seconds → PDF scrollTop.
  * Always pinned to (0, 0) at the start and (totalDurationSec, scrollMax) at the
  * end; each valid anchor adds an interior point at its measure's start time and
- * its page's top offset. Anchors referencing an unknown measure/page are skipped.
+ * its page's top offset — one per time the measure is played, so with repeats
+ * the PDF scrolls back to the repeated page. Anchors referencing an unknown
+ * measure/page are skipped.
  */
 export function anchorControlPoints({
   anchors,
@@ -48,17 +50,19 @@ export function anchorControlPoints({
   scrollMax,
 }: {
   anchors: PdfAnchor[];
-  measureStartSec: (measure: number) => number | undefined;
+  measureStartSec: (measure: number) => number | number[] | undefined;
   pageTop: (page: number) => number | undefined;
   totalDurationSec: number;
   scrollMax: number;
 }): ScrollControlPoint[] {
   const points: ScrollControlPoint[] = [{ t: 0, scroll: 0 }];
   for (const anchor of anchors) {
-    const t = measureStartSec(anchor.measure);
+    const starts = measureStartSec(anchor.measure);
     const scroll = pageTop(anchor.page);
-    if (t === undefined || scroll === undefined) continue;
-    points.push({ t, scroll: clamp(scroll, 0, scrollMax) });
+    if (starts === undefined || scroll === undefined) continue;
+    for (const t of Array.isArray(starts) ? starts : [starts]) {
+      points.push({ t, scroll: clamp(scroll, 0, scrollMax) });
+    }
   }
   points.push({ t: Math.max(totalDurationSec, 0.001), scroll: scrollMax });
   return points.sort((a, b) => a.t - b.t);

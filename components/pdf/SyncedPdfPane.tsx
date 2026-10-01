@@ -30,7 +30,7 @@ type Props = {
   /** `page → measure` alignment points (musicxml split view only). */
   anchors?: PdfAnchor[];
   /** measure number → seconds from song start, for anchor interpolation. */
-  measureStartSec?: Map<number, number>;
+  measureStartSec?: Map<number, number[]>;
   totalDurationSec?: number;
   /** Show zoom controls (standalone viewer). */
   interactive?: boolean;
