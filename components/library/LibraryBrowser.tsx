@@ -5,11 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DocumentRow, DocumentType, FolderRow } from "@/lib/types";
 import { uploadPdf } from "@/lib/pdf/upload-client";
+import { parseChordPro } from "@/lib/chordpro/parse";
+import {
+  ACCEPTED_EXTENSIONS,
+  baseName,
+  detectImport,
+  docxHtmlToScript,
+  onsongToChordPro,
+  storedType,
+} from "@/lib/import/formats";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
 import { TYPE_LABEL, TYPE_STYLE } from "./documentTypes";
 
-const MUSICXML_EXTENSIONS = [".musicxml", ".xml"];
-const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ...MUSICXML_EXTENSIONS];
+
+const SUPPORTED_LABEL = ".txt, .docx, .cho/.pro (ChordPro), .onsong, .musicxml o .pdf";
 
 type SortMode = "name" | "recent";
 
@@ -127,31 +136,35 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
   }
 
   async function importFile(file: File) {
-    const lowerName = file.name.toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.some((ext) => lowerName.endsWith(ext))) {
-      setError(`Formato no soportado: ${file.name}. Usa .txt, .musicxml, .xml o .pdf.`);
+    const kind = detectImport(file.name);
+    if (!kind) {
+      setError(`Formato no soportado: ${file.name}. Usa ${SUPPORTED_LABEL}.`);
       return;
     }
-    const isPdf = lowerName.endsWith(".pdf");
-    const isMusicXml = MUSICXML_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
 
     setImporting(true);
     setError(null);
     try {
       let body: Record<string, unknown>;
-      if (isPdf) {
-        const title = file.name.replace(/\.pdf$/i, "") || "Sin título";
+      if (kind === "pdf") {
         const blobUrl = await uploadPdf(file);
-        body = { type: "pdf", title, folderId, blobUrl };
+        body = { type: "pdf", title: baseName(file.name), folderId, blobUrl };
       } else {
-        const type: DocumentType = isMusicXml ? "musicxml" : "text";
-        const text = await file.text();
-        const workTitle = isMusicXml
-          ? text.match(/<work-title>\s*([\s\S]*?)\s*<\/work-title>/)?.[1]
-          : null;
-        const title =
-          workTitle || file.name.replace(/\.(txt|musicxml|xml)$/i, "") || "Sin título";
-        body = { type, title, folderId, content: text };
+        let content: string;
+        let title: string | null = null;
+        if (kind === "docx") {
+          // Loaded on demand: only Word imports pay for the converter.
+          const mammoth = await import("mammoth");
+          const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+          content = docxHtmlToScript(value);
+        } else if (kind === "onsong") {
+          ({ title, content } = onsongToChordPro(await file.text()));
+        } else {
+          content = await file.text();
+          if (kind === "musicxml") title = content.match(/<work-title>\s*([\s\S]*?)\s*<\/work-title>/)?.[1] ?? null;
+          if (kind === "chordpro") title = parseChordPro(content).title;
+        }
+        body = { type: storedType(kind), title: title || baseName(file.name), folderId, content };
       }
 
       const res = await fetch("/api/documents", {
@@ -221,7 +234,7 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
     { id: "text", label: "Nuevo guion", hint: "Texto para teleprompter", icon: "📜" },
     { id: "chordpro", label: "Nuevo ChordPro", hint: "Letra con [acordes]", icon: "🎸" },
     { id: "folder", label: "Nueva carpeta", hint: "Organiza tu biblioteca", icon: "📁" },
-    { id: "import", label: importing ? "Importando…" : "Importar archivo", hint: ".txt · .musicxml · .pdf", icon: "⇪" },
+    { id: "import", label: importing ? "Importando…" : "Importar archivo", hint: ".txt · .docx · ChordPro · .pdf", icon: "⇪" },
   ];
 
   function runQuickAction(id: QuickAction) {
@@ -345,7 +358,7 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
             <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
               {needle
                 ? `Nada coincide con “${query.trim()}” en esta carpeta.`
-                : "Crea tu primer guion o arrastra aquí un archivo .txt, .musicxml o .pdf para empezar."}
+                : "Crea tu primer guion o arrastra aquí un guion, una canción (ChordPro, OnSong, MusicXML) o un PDF para empezar."}
             </p>
           </div>
         ) : (
@@ -440,7 +453,7 @@ export function LibraryBrowser({ folderId }: { folderId: string | null }) {
           <div className="rounded-3xl border-2 border-dashed border-emerald-500 bg-white/90 px-10 py-8 text-center shadow-xl dark:bg-zinc-900/90">
             <div className="text-4xl">{importing ? "⏳" : "⇪"}</div>
             <p className="mt-2 font-semibold">{importing ? "Importando…" : "Suelta para importar"}</p>
-            <p className="text-xs text-zinc-500">.txt · .musicxml · .xml · .pdf</p>
+            <p className="text-xs text-zinc-500">.txt · .docx · .cho · .onsong · .musicxml · .pdf</p>
           </div>
         </div>
       )}
