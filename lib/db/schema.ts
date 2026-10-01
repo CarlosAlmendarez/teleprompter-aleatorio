@@ -228,3 +228,17 @@ export const offlineCacheFlags = pgTable("offline_cache_flags", {
   }),
   cachedAt: timestamp("cached_at").defaultNow().notNull(),
 });
+
+/**
+ * Read-only links to a setlist (e.g. for the band). Anyone with the token can
+ * view the setlist and play its documents; deleting the row revokes it.
+ */
+export const setlistShares = pgTable("setlist_shares", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  setlistId: uuid("setlist_id")
+    .notNull()
+    .references(() => setlists.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});

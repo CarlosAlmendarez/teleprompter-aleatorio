@@ -15,10 +15,13 @@ export function usePlayerSettings({
   documentId,
   playback,
   setlistNav,
+  readOnly = false,
 }: {
   documentId: string;
   playback: PlaybackSettings | undefined;
   setlistNav: SetlistNav | null;
+  /** Shared (read-only) playback: changes apply on screen but are never saved. */
+  readOnly?: boolean;
 }) {
   const pending = useRef<PlayerSettings>({});
   const playbackRef = useRef<PlaybackSettings>(playback ?? {});
@@ -57,11 +60,12 @@ export function usePlayerSettings({
 
   const save = useCallback(
     (change: PlayerSettings) => {
+      if (readOnly) return;
       pending.current = { ...pending.current, ...change };
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(flush, SAVE_DELAY_MS);
     },
-    [flush],
+    [flush, readOnly],
   );
 
   useEffect(() => {

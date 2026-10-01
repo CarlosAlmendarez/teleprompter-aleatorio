@@ -8,6 +8,7 @@ import { BUTTON_PRIMARY, ConfirmDialog } from "@/components/ui/Dialog";
 import { TYPE_LABEL, TYPE_STYLE } from "@/components/library/documentTypes";
 import { OfflineToggle } from "@/components/offline/OfflineToggle";
 import { ItemSettings } from "./ItemSettings";
+import { ShareDialog } from "./ShareDialog";
 import {
   SETLIST_KIND_LABEL,
   playerHref,
@@ -153,6 +154,7 @@ export function SetlistEditor({
         />
         <span className={`text-xs ${status === "error" ? "text-red-500" : "text-zinc-400"}`}>{statusLabel}</span>
         <OfflineToggle target={{ setlistId: setlist.id }} initialMarked={offlineMarked} />
+        <ShareDialog setlistId={setlist.id} />
         {items.length > 0 ? (
           <Link href={playerHref({ id: items[0].documentId, type: items[0].type }, { id: setlist.id, index: 0 })} className={BUTTON_PRIMARY}>
             ▶ Reproducir setlist

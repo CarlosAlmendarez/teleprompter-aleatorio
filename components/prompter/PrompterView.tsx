@@ -62,6 +62,7 @@ export function PrompterView({
   metadata = null,
   setlistNav = null,
   readerLinkId = null,
+  readOnly = false,
 }: {
   documentId: string;
   format?: "text" | "chordpro";
@@ -73,6 +74,8 @@ export function PrompterView({
   setlistNav?: SetlistNav | null;
   /** Set when this window is the reader screen driven by an operator window. */
   readerLinkId?: string | null;
+  /** Shared link: nothing is saved back to the owner's document. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const isReader = readerLinkId !== null;
@@ -89,7 +92,12 @@ export function PrompterView({
   const initialFont = Math.min(MAX_FONT, Math.max(MIN_FONT, initial.fontSize ?? DEFAULT_FONT));
   const initialSpeed = initial.speed ?? DEFAULT_SPEED;
   const fontSizeRef = useRef(initialFont);
-  const { save: saveSetting } = usePlayerSettings({ documentId, playback: metadata?.playback, setlistNav });
+  const { save: saveSetting } = usePlayerSettings({
+    documentId,
+    playback: metadata?.playback,
+    setlistNav,
+    readOnly,
+  });
 
   const song = useMemo(() => (format === "chordpro" ? parseChordPro(content) : null), [format, content]);
   const script = useMemo(() => (format === "text" ? parseScript(content) : null), [format, content]);
@@ -669,7 +677,7 @@ export function PrompterView({
         position={progress.position}
         remainingSec={progress.remainingSec}
         targetSec={targetSec}
-        onTargetChange={isReader ? undefined : saveTarget}
+        onTargetChange={isReader || readOnly ? undefined : saveTarget}
       />
       <CountInOverlay count={countIn.count} />
       {!isReader && <SetlistNavBar nav={setlistNav} />}

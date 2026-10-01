@@ -45,7 +45,9 @@ export function ChordChartPlayer({
   backHref,
   pdf,
   setlistNav = null,
+  readOnly = false,
 }: {
+  readOnly?: boolean;
   documentId: string;
   metadata?: DocumentMetadata | null;
   title: string;
@@ -59,7 +61,7 @@ export function ChordChartPlayer({
   useWakeLock();
   const [initial] = useState(() => resolvePlayerSettings(metadata, setlistNav?.overrides));
   const initialTempo = Math.min(MAX_SPEED_PCT, Math.max(MIN_SPEED_PCT, initial.tempoPct ?? 100));
-  const { save } = usePlayerSettings({ documentId, playback: metadata?.playback, setlistNav });
+  const { save } = usePlayerSettings({ documentId, playback: metadata?.playback, setlistNav, readOnly });
   const [transpose, setTranspose] = useState(initial.transpose ?? 0);
   const [capo, setCapo] = useState(initial.capo ?? 0);
   const measures = data.measures;
